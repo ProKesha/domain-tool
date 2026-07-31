@@ -1115,6 +1115,22 @@ button:disabled {
   transform: translate(0, 0);
 }
 
+.reset-actions .action-tooltip {
+  right: 0;
+  left: auto;
+  transform: translate(0, 7px);
+}
+
+.reset-actions .action-tooltip::after {
+  right: 22%;
+  left: auto;
+}
+
+.reset-actions .action-tooltip-wrap:hover .action-tooltip,
+.reset-actions .action-tooltip-wrap:focus-within .action-tooltip {
+  transform: translate(0, 0);
+}
+
 .selection-action:not(:disabled):hover {
   filter: brightness(1.12);
   transform: translateY(-1px);
@@ -1512,6 +1528,11 @@ input[type="checkbox"] {
   color: #58ddb6;
 }
 
+.status-purchased {
+  background: rgba(255, 138, 56, 0.11);
+  color: #ffad72;
+}
+
 .status-generated {
   background: rgba(109, 107, 255, 0.11);
   color: #aaa8ff;
@@ -1710,6 +1731,11 @@ code {
   background: rgba(109, 107, 255, 0.17);
   color: #aaa8ff;
   font-size: 11px;
+}
+
+.modal-icon.nc {
+  background: rgba(255, 138, 56, 0.14);
+  color: #ffad72;
 }
 
 .modal-icon.neutral {

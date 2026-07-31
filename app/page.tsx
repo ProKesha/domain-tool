@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 type DomainStatus =
   | "active"
+  | "purchased"
   | "generated"
   | "imported"
   | "waiting_ns"
@@ -293,6 +294,7 @@ const statusMeta: Record<
   { label: string; dot: string; className: string }
 > = {
   active: { label: "Active", dot: "●", className: "status-active" },
+  purchased: { label: "Purchased", dot: "◆", className: "status-purchased" },
   generated: { label: "Generated", dot: "✦", className: "status-generated" },
   imported: { label: "Imported", dot: "○", className: "status-imported" },
   waiting_ns: { label: "Waiting for NS", dot: "◒", className: "status-waiting" },
@@ -363,7 +365,9 @@ export default function Home() {
   const [drawerTab, setDrawerTab] = useState<"overview" | "dns">("overview");
   const [records, setRecords] = useState(initialRecords);
   const [setupOpen, setSetupOpen] = useState(false);
-  const [setupMode, setSetupMode] = useState<"add" | "change_ip">("add");
+  const [setupMode, setSetupMode] = useState<
+    "add" | "change_ip" | "namecheap_a"
+  >("add");
   const [accountsOpen, setAccountsOpen] = useState(false);
   const [purchasesOpen, setPurchasesOpen] = useState(false);
   const [balanceOpen, setBalanceOpen] = useState(false);
@@ -740,11 +744,11 @@ export default function Home() {
           selected.includes(domain.id)
             ? {
                 ...domain,
-                status: domain.namecheap === "Not assigned" ? "generated" : "imported",
+                status: "purchased",
                 cloudflare: null,
                 ip: null,
-                ns1: null,
-                ns2: null,
+                ns1: "dns1.registrar-servers.example",
+                ns2: "dns2.registrar-servers.example",
                 error: undefined,
                 lastSync: "now",
               }
@@ -766,10 +770,39 @@ export default function Home() {
     setSetupOpen(true);
   }
 
+  function openNamecheapARecordsSetup() {
+    setSetupMode("namecheap_a");
+    setSetupOpen(true);
+  }
+
+  function updateNamecheapNameservers() {
+    const count = selected.length;
+    if (!count) return;
+    setDomains((current) =>
+      current.map((domain) =>
+        selected.includes(domain.id)
+          ? {
+              ...domain,
+              status: "active",
+              ns1: domain.ns1 || "ns1.cloudflare-demo.example",
+              ns2: domain.ns2 || "ns2.cloudflare-demo.example",
+              error: undefined,
+              lastSync: "just now",
+            }
+          : domain,
+      ),
+    );
+    setSelected([]);
+    showToast(
+      `Cloudflare nameservers saved in Namecheap for ${count} demo ${count === 1 ? "domain" : "domains"}`,
+    );
+  }
+
   function startCloudflareSetup() {
     if (!selected.length || !serverIp.trim()) return;
     const selectedIds = [...selected];
     const isIpChange = setupMode === "change_ip";
+    const isNamecheapARecords = setupMode === "namecheap_a";
     setJobRunning(true);
     setSetupOpen(false);
     setDomains((current) =>
@@ -778,7 +811,11 @@ export default function Home() {
           ? {
               ...domain,
               status: "processing",
-              cloudflare: isIpChange ? domain.cloudflare : setupAccount,
+              cloudflare: isNamecheapARecords
+                ? domain.cloudflare
+                : isIpChange
+                  ? domain.cloudflare
+                  : setupAccount,
               ip: serverIp,
               error: undefined,
               lastSync: "now",
@@ -792,9 +829,18 @@ export default function Home() {
           selectedIds.includes(domain.id)
             ? {
                 ...domain,
-                status: isIpChange ? "active" : "waiting_ns",
-                ns1: isIpChange ? domain.ns1 : "ns3.cloudflare-demo.example",
-                ns2: isIpChange ? domain.ns2 : "ns4.cloudflare-demo.example",
+                status: isIpChange || isNamecheapARecords ? "active" : "waiting_ns",
+                cloudflare: domain.cloudflare,
+                ns1: isNamecheapARecords
+                  ? "dns1.registrar-servers.example"
+                  : isIpChange
+                    ? domain.ns1
+                    : "ns3.cloudflare-demo.example",
+                ns2: isNamecheapARecords
+                  ? "dns2.registrar-servers.example"
+                  : isIpChange
+                    ? domain.ns2
+                    : "ns4.cloudflare-demo.example",
                 lastSync: "just now",
               }
             : domain,
@@ -802,7 +848,9 @@ export default function Home() {
       );
       setJobRunning(false);
       showToast(
-        isIpChange
+        isNamecheapARecords
+          ? `Namecheap A records created for ${selectedIds.length} demo ${selectedIds.length === 1 ? "domain" : "domains"}`
+          : isIpChange
           ? `Server IP changed for ${selectedIds.length} demo ${selectedIds.length === 1 ? "domain" : "domains"}`
           : `${selectedIds.length} demo ${selectedIds.length === 1 ? "domain" : "domains"} sent to Cloudflare`,
       );
@@ -1232,12 +1280,16 @@ export default function Home() {
               <span className="spinner" />
               <div>
                 <strong>
-                  {setupMode === "change_ip"
+                  {setupMode === "namecheap_a"
+                    ? "Namecheap DNS update is running"
+                    : setupMode === "change_ip"
                     ? "Cloudflare IP update is running"
                     : "Cloudflare setup is running"}
                 </strong>
                 <small>
-                  {setupMode === "change_ip"
+                  {setupMode === "namecheap_a"
+                    ? "Creating @ and * A records in Namecheap DNS…"
+                    : setupMode === "change_ip"
                     ? "Replacing @ and * A records on selected zones…"
                     : "Creating zones and requesting nameservers…"}
                 </small>
@@ -1271,6 +1323,7 @@ export default function Home() {
               >
                 <option value="all">All statuses</option>
                 <option value="active">Active</option>
+                <option value="purchased">Purchased</option>
                 <option value="generated">Generated</option>
                 <option value="imported">Imported</option>
                 <option value="waiting_ns">Waiting for NS</option>
@@ -1340,8 +1393,8 @@ export default function Home() {
                       id="tooltip-database-delete"
                       role="tooltip"
                     >
-                      Видаляє вибрані домени лише з бази даних цього інструмента.
-                      У Cloudflare та Namecheap нічого не змінюється.
+                      Deletes selected domains only from this tool&apos;s database.
+                      Nothing changes in Cloudflare or Namecheap.
                     </span>
                   </span>
                 </div>
@@ -1363,8 +1416,8 @@ export default function Home() {
                       id="tooltip-cloudflare-add"
                       role="tooltip"
                     >
-                      Створює зони Cloudflare для вибраних доменів, вмикає Flexible
-                      SSL і додає A-записи @ та * на вказаний IP.
+                      Creates Cloudflare zones for selected domains, enables Flexible
+                      SSL, and adds @ and * A records for the specified IP.
                     </span>
                   </span>
                   <span className="action-tooltip-wrap">
@@ -1381,8 +1434,8 @@ export default function Home() {
                       id="tooltip-cloudflare-remove"
                       role="tooltip"
                     >
-                      Видаляє зону домену та всі її DNS-записи лише з Cloudflare.
-                      У Namecheap і базі даних домен залишається.
+                      Deletes the domain zone and all its DNS records only from
+                      Cloudflare. The domain remains in Namecheap and the database.
                     </span>
                   </span>
                   <span className="action-tooltip-wrap">
@@ -1399,8 +1452,9 @@ export default function Home() {
                       id="tooltip-cloudflare-ip"
                       role="tooltip"
                     >
-                      Замінює старі A-записи у вибраних зонах Cloudflare на нові @
-                      та * для вказаного IP. Зона та NS-сервери не змінюються.
+                      Replaces old A records in selected Cloudflare zones with new @
+                      and * records for the specified IP. Zone and nameservers stay
+                      unchanged.
                     </span>
                   </span>
                 </div>
@@ -1408,41 +1462,87 @@ export default function Home() {
               <div className="selection-group namecheap-actions">
                 <span className="selection-group-title">Namecheap</span>
                 <div>
-                  <button
-                    className="selection-action action-teal"
-                    disabled={!selected.length}
-                    onClick={() => showToast("Demo nameservers updated for the selection")}
-                  >
-                    NS servers <span aria-hidden="true">ⓘ</span>
-                  </button>
-                  <button
-                    className="selection-action action-indigo"
-                    disabled={!selected.length}
-                    onClick={() => showToast("Demo A records updated for the selection")}
-                  >
-                    A records <span aria-hidden="true">ⓘ</span>
-                  </button>
+                  <span className="action-tooltip-wrap">
+                    <button
+                      className="selection-action action-teal"
+                      disabled={!selected.length}
+                      onClick={updateNamecheapNameservers}
+                      aria-describedby="tooltip-namecheap-ns"
+                    >
+                      NS servers <span aria-hidden="true">ⓘ</span>
+                    </button>
+                    <span
+                      className="action-tooltip"
+                      id="tooltip-namecheap-ns"
+                      role="tooltip"
+                    >
+                      Sets the custom Cloudflare nameservers (NS1 and NS2) in
+                      Namecheap for all selected domains.
+                    </span>
+                  </span>
+                  <span className="action-tooltip-wrap">
+                    <button
+                      className="selection-action action-indigo"
+                      disabled={!selected.length}
+                      onClick={openNamecheapARecordsSetup}
+                      aria-describedby="tooltip-namecheap-a"
+                    >
+                      A records <span aria-hidden="true">ⓘ</span>
+                    </button>
+                    <span
+                      className="action-tooltip"
+                      id="tooltip-namecheap-a"
+                      role="tooltip"
+                    >
+                      Creates @ and * A records directly in Namecheap DNS for the
+                      specified IP, without using Cloudflare.
+                    </span>
+                  </span>
                 </div>
               </div>
               <div className="selection-group reset-actions">
                 <span className="selection-group-title">Full reset</span>
                 <div>
-                  <button
-                    className="selection-action action-reset"
-                    disabled={!selected.length}
-                    onClick={resetSelectedDomains}
-                  >
-                    Reset all <span aria-hidden="true">ⓘ</span>
-                  </button>
-                  <label className="reset-toggle">
-                    <input
-                      type="checkbox"
-                      checked={resetFromDatabase}
-                      onChange={(event) => setResetFromDatabase(event.target.checked)}
-                    />
-                    <span />
-                    from database
-                  </label>
+                  <span className="action-tooltip-wrap reset-button-tooltip">
+                    <button
+                      className="selection-action action-reset"
+                      disabled={!selected.length}
+                      onClick={resetSelectedDomains}
+                      aria-describedby="tooltip-full-reset"
+                    >
+                      Reset all <span aria-hidden="true">ⓘ</span>
+                    </button>
+                    <span
+                      className="action-tooltip"
+                      id="tooltip-full-reset"
+                      role="tooltip"
+                    >
+                      Fully resets selected domains: removes Cloudflare zones and
+                      DNS records, restores standard Namecheap nameservers, and
+                      clears host records. Domains remain with Purchased status.
+                    </span>
+                  </span>
+                  <span className="action-tooltip-wrap reset-switch-tooltip">
+                    <label className="reset-toggle">
+                      <input
+                        type="checkbox"
+                        checked={resetFromDatabase}
+                        onChange={(event) => setResetFromDatabase(event.target.checked)}
+                        aria-describedby="tooltip-reset-database"
+                      />
+                      <span />
+                      from database
+                    </label>
+                    <span
+                      className="action-tooltip"
+                      id="tooltip-reset-database"
+                      role="tooltip"
+                    >
+                      When enabled, successfully reset domains are also removed from
+                      this tool&apos;s database. When disabled, they remain in the list
+                      with Purchased status.
+                    </span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -1700,11 +1800,19 @@ export default function Home() {
           >
             <div className="modal-header">
               <div>
-                <span className="modal-icon">CF</span>
+                <span className={`modal-icon ${setupMode === "namecheap_a" ? "nc" : ""}`}>
+                  {setupMode === "namecheap_a" ? "NC" : "CF"}
+                </span>
                 <div>
-                  <p className="eyebrow">Bulk operation</p>
+                  <p className="eyebrow">
+                    {setupMode === "namecheap_a"
+                      ? "Namecheap operation"
+                      : "Cloudflare operation"}
+                  </p>
                   <h2 id="setup-title">
-                    {setupMode === "change_ip"
+                    {setupMode === "namecheap_a"
+                      ? "Create Namecheap A records"
+                      : setupMode === "change_ip"
                       ? "Change Cloudflare IP"
                       : "Add to Cloudflare"}
                   </h2>
@@ -1741,9 +1849,14 @@ export default function Home() {
                     <option>Cloudflare Demo 02</option>
                   </select>
                 </label>
-              ) : (
+              ) : setupMode === "change_ip" ? (
                 <label>
                   <span>Cloudflare account</span>
+                  <input value="Auto-detected for every domain" disabled readOnly />
+                </label>
+              ) : (
+                <label>
+                  <span>Namecheap account</span>
                   <input value="Auto-detected for every domain" disabled readOnly />
                 </label>
               )}
@@ -1760,31 +1873,51 @@ export default function Home() {
               <div className="dns-template-heading">
                 <div>
                   <strong>
-                    {setupMode === "change_ip" ? "A record replacement" : "DNS template"}
+                    {setupMode === "change_ip"
+                      ? "A record replacement"
+                      : setupMode === "namecheap_a"
+                        ? "Namecheap DNS template"
+                        : "DNS template"}
                   </strong>
                   <small>
                     {setupMode === "change_ip"
                       ? "Existing @ and * records will be replaced"
+                      : setupMode === "namecheap_a"
+                        ? "Records created directly in Namecheap DNS"
                       : "Records created for every domain"}
                   </small>
                 </div>
-                <label className="switch-row">
-                  <span>Cloudflare proxy</span>
-                  <input
-                    type="checkbox"
-                    checked={proxied}
-                    onChange={(event) => setProxied(event.target.checked)}
-                  />
-                  <span className="switch" />
-                </label>
+                {setupMode !== "namecheap_a" && (
+                  <label className="switch-row">
+                    <span>Cloudflare proxy</span>
+                    <input
+                      type="checkbox"
+                      checked={proxied}
+                      onChange={(event) => setProxied(event.target.checked)}
+                    />
+                    <span className="switch" />
+                  </label>
+                )}
               </div>
               <div className="record-preview">
                 <span className="record-type">A</span>
                 <code>@</code>
                 <span>→</span>
                 <code>{serverIp || "Server IP"}</code>
-                <span className={proxied ? "proxy-on" : "proxy-off"}>
-                  {proxied ? "Proxied" : "DNS only"}
+                <span
+                  className={
+                    setupMode === "namecheap_a"
+                      ? "proxy-off"
+                      : proxied
+                        ? "proxy-on"
+                        : "proxy-off"
+                  }
+                >
+                  {setupMode === "namecheap_a"
+                    ? "Namecheap DNS"
+                    : proxied
+                      ? "Proxied"
+                      : "DNS only"}
                 </span>
               </div>
               <div className="record-preview">
@@ -1792,15 +1925,29 @@ export default function Home() {
                 <code>*</code>
                 <span>→</span>
                 <code>{serverIp || "Server IP"}</code>
-                <span className={proxied ? "proxy-on" : "proxy-off"}>
-                  {proxied ? "Proxied" : "DNS only"}
+                <span
+                  className={
+                    setupMode === "namecheap_a"
+                      ? "proxy-off"
+                      : proxied
+                        ? "proxy-on"
+                        : "proxy-off"
+                  }
+                >
+                  {setupMode === "namecheap_a"
+                    ? "Namecheap DNS"
+                    : proxied
+                      ? "Proxied"
+                      : "DNS only"}
                 </span>
               </div>
             </div>
             <div className="process-note">
               <span aria-hidden="true">i</span>
               <p>
-                {setupMode === "change_ip"
+                {setupMode === "namecheap_a"
+                  ? "The tool will restore standard Namecheap nameservers and create @ and * A records for the specified IP without calling the Cloudflare API."
+                  : setupMode === "change_ip"
                   ? "The tool will keep each zone and its nameservers, remove old A records and create new @ and * records for the specified IP."
                   : "The tool will create Cloudflare zones, update Namecheap nameservers and add both DNS records automatically."}
               </p>
@@ -1814,7 +1961,11 @@ export default function Home() {
                 onClick={startCloudflareSetup}
                 disabled={!serverIp.trim()}
               >
-                {setupMode === "change_ip" ? "Change IP" : "Start setup"}
+                {setupMode === "namecheap_a"
+                  ? "Create A records"
+                  : setupMode === "change_ip"
+                    ? "Change IP"
+                    : "Start setup"}
               </button>
             </div>
           </section>
