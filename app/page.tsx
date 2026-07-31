@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type DomainStatus =
   | "active"
@@ -354,6 +354,13 @@ export default function Home() {
   const [toast, setToast] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState("2 min ago");
 
+  useEffect(() => {
+    const savedBulkInput = window.localStorage.getItem("domain-tool:bulk-input");
+    if (savedBulkInput === null) return;
+    const frame = window.requestAnimationFrame(() => setBulkInput(savedBulkInput));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
   const filteredDomains = useMemo(() => {
     return domains.filter((domain) => {
       const normalizedDomain = normalizeDomainName(domain.name);
@@ -620,6 +627,7 @@ export default function Home() {
 
   function clearBulkCheck() {
     setBulkInput("");
+    window.localStorage.removeItem("domain-tool:bulk-input");
     setBulkDomainNames([]);
     setBulkResult(null);
     setBulkDbOnly(false);
@@ -1320,7 +1328,11 @@ export default function Home() {
               <div className="bulk-check-body">
                 <textarea
                   value={bulkInput}
-                  onChange={(event) => setBulkInput(event.target.value)}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setBulkInput(value);
+                    window.localStorage.setItem("domain-tool:bulk-input", value);
+                  }}
                   placeholder={"alpha-landing.example\nbravo-campaign.example\ncharlie-offer.example"}
                   aria-label="Domains to check"
                   spellCheck={false}
