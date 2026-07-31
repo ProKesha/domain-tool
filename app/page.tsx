@@ -144,7 +144,7 @@ const purchaseRows: PurchaseRow[] = [
   },
 ];
 
-const initialDomains: Domain[] = [
+const featuredDomains: Domain[] = [
   {
     id: 15658,
     name: "alpha-landing.example",
@@ -256,6 +256,38 @@ const initialDomains: Domain[] = [
   },
 ];
 
+const generatedDemoDomains: Domain[] = Array.from({ length: 191 }, (_, index) => {
+  const sequence = index + 10;
+  const accountNumber = (index % 3) + 1;
+  const cloudflareNumber = (index % 2) + 1;
+  const hasCloudflare = index % 5 !== 0;
+  const statusCycle: DomainStatus[] = [
+    "active",
+    "active",
+    "active",
+    "waiting_ns",
+    "imported",
+  ];
+  const status = hasCloudflare ? statusCycle[index % statusCycle.length] : "imported";
+  const ip = cloudflareNumber === 1 ? "192.0.2.10" : "198.51.100.24";
+
+  return {
+    id: 15649 - index,
+    name: `demo-zone-${String(sequence).padStart(3, "0")}.example`,
+    status,
+    namecheap: `Namecheap Demo 0${accountNumber}`,
+    cloudflare: hasCloudflare ? `Cloudflare Demo 0${cloudflareNumber}` : null,
+    ip: hasCloudflare ? ip : null,
+    ns1: hasCloudflare ? `ns${cloudflareNumber}.cloudflare-demo.example` : null,
+    ns2: hasCloudflare ? `ns${cloudflareNumber + 2}.cloudflare-demo.example` : null,
+    expires: `${String((index % 28) + 1).padStart(2, "0")} Jul 2027`,
+    lastSync: `${(index % 45) + 1} min ago`,
+  };
+});
+
+const initialDomains: Domain[] = [...featuredDomains, ...generatedDemoDomains];
+const DOMAINS_PER_PAGE = 50;
+
 const statusMeta: Record<
   DomainStatus,
   { label: string; dot: string; className: string }
@@ -312,6 +344,7 @@ export default function Home() {
     initialCloudflareAccounts,
   );
   const [selected, setSelected] = useState<number[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [bulkCheckOpen, setBulkCheckOpen] = useState(true);
   const [bulkInput, setBulkInput] = useState("");
   const [bulkDbOnly, setBulkDbOnly] = useState(false);
@@ -388,9 +421,26 @@ export default function Home() {
     });
   }, [domains, search, status, ncFilter, cfFilter, bulkDomainNames]);
 
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredDomains.length / DOMAINS_PER_PAGE),
+  );
+  const visiblePage = Math.min(currentPage, totalPages);
+  const paginatedDomains = useMemo(() => {
+    const start = (visiblePage - 1) * DOMAINS_PER_PAGE;
+    return filteredDomains.slice(start, start + DOMAINS_PER_PAGE);
+  }, [filteredDomains, visiblePage]);
+  const firstVisibleDomain = filteredDomains.length
+    ? (visiblePage - 1) * DOMAINS_PER_PAGE + 1
+    : 0;
+  const lastVisibleDomain = Math.min(
+    visiblePage * DOMAINS_PER_PAGE,
+    filteredDomains.length,
+  );
+
   const allVisibleSelected =
-    filteredDomains.length > 0 &&
-    filteredDomains.every((domain) => selected.includes(domain.id));
+    paginatedDomains.length > 0 &&
+    paginatedDomains.every((domain) => selected.includes(domain.id));
 
   const activeCount = domains.filter((domain) => domain.status === "active").length;
   const attentionCount = domains.filter((domain) =>
@@ -413,13 +463,17 @@ export default function Home() {
   function toggleAllVisible() {
     if (allVisibleSelected) {
       setSelected((current) =>
-        current.filter((id) => !filteredDomains.some((domain) => domain.id === id)),
+        current.filter((id) => !paginatedDomains.some((domain) => domain.id === id)),
       );
       return;
     }
     setSelected((current) => [
-      ...new Set([...current, ...filteredDomains.map((domain) => domain.id)]),
+      ...new Set([...current, ...paginatedDomains.map((domain) => domain.id)]),
     ]);
+  }
+
+  function goToPage(page: number) {
+    setCurrentPage(Math.min(Math.max(page, 1), totalPages));
   }
 
   function openDomain(domain: Domain) {
@@ -466,6 +520,7 @@ export default function Home() {
       const ids = new Set(current.map((domain) => domain.id));
       return [...imported.filter((domain) => !ids.has(domain.id)), ...current];
     });
+    setCurrentPage(1);
     showToast("2 new domains imported from Namecheap");
   }
 
@@ -524,6 +579,7 @@ export default function Home() {
 
     if (saveGenerated) {
       setDomains((current) => [...generated, ...current]);
+      setCurrentPage(1);
       showToast(`${count} test domain names added to the workspace`);
     } else {
       showToast(`${count} test domain names generated (preview only)`);
@@ -624,6 +680,7 @@ export default function Home() {
       missing: queriedDomains.length - found,
     });
     setSelected([]);
+    setCurrentPage(1);
     showToast(
       `${queriedDomains.length} test ${queriedDomains.length === 1 ? "domain" : "domains"} checked${databaseOnly ? " in the local database" : " through the Namecheap demo"}`,
     );
@@ -636,6 +693,7 @@ export default function Home() {
     setBulkResult(null);
     setBulkDbOnly(false);
     setSelected([]);
+    setCurrentPage(1);
   }
 
   function deleteSelectedFromDatabase() {
@@ -643,6 +701,7 @@ export default function Home() {
     if (!count) return;
     setDomains((current) => current.filter((domain) => !selected.includes(domain.id)));
     setSelected([]);
+    setCurrentPage(1);
     showToast(`${count} demo ${count === 1 ? "domain" : "domains"} removed from the database`);
   }
 
@@ -693,6 +752,7 @@ export default function Home() {
       );
     }
     setSelected([]);
+    setCurrentPage(1);
     showToast(
       resetFromDatabase
         ? `${count} demo ${count === 1 ? "domain" : "domains"} fully reset and removed`
@@ -758,6 +818,7 @@ export default function Home() {
     setStatus("all");
     setNcFilter("all");
     setCfFilter("all");
+    setCurrentPage(1);
   }
 
   function exportPurchasesCsv() {
@@ -1170,7 +1231,10 @@ export default function Home() {
               <span aria-hidden="true">⌕</span>
               <input
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setCurrentPage(1);
+                }}
                 placeholder="Search domains…"
                 aria-label="Search domains"
               />
@@ -1178,7 +1242,13 @@ export default function Home() {
             </label>
             <label>
               <span className="sr-only">Status</span>
-              <select value={status} onChange={(event) => setStatus(event.target.value)}>
+              <select
+                value={status}
+                onChange={(event) => {
+                  setStatus(event.target.value);
+                  setCurrentPage(1);
+                }}
+              >
                 <option value="all">All statuses</option>
                 <option value="active">Active</option>
                 <option value="generated">Generated</option>
@@ -1192,7 +1262,10 @@ export default function Home() {
               <span className="sr-only">Namecheap account</span>
               <select
                 value={ncFilter}
-                onChange={(event) => setNcFilter(event.target.value)}
+                onChange={(event) => {
+                  setNcFilter(event.target.value);
+                  setCurrentPage(1);
+                }}
               >
                 <option value="all">All Namecheap</option>
                 <option value="Namecheap Demo 01">Namecheap Demo 01</option>
@@ -1204,7 +1277,10 @@ export default function Home() {
               <span className="sr-only">Cloudflare account</span>
               <select
                 value={cfFilter}
-                onChange={(event) => setCfFilter(event.target.value)}
+                onChange={(event) => {
+                  setCfFilter(event.target.value);
+                  setCurrentPage(1);
+                }}
               >
                 <option value="all">All Cloudflare</option>
                 <option value="Cloudflare Demo 01">Cloudflare Demo 01</option>
@@ -1337,7 +1413,7 @@ export default function Home() {
                     setBulkInput(value);
                     window.localStorage.setItem("domain-tool:bulk-input", value);
                   }}
-                  placeholder={"alpha-landing.example\nbravo-campaign.example\ncharlie-offer.example"}
+                  placeholder={"domain-one.example\ndomain-two.example\ndomain-three.example"}
                   aria-label="Domains to check"
                   spellCheck={false}
                 />
@@ -1377,6 +1453,43 @@ export default function Home() {
             )}
           </section>
 
+          <div className="domain-table-toolbar">
+            <div>
+              <h3>Domains</h3>
+              <span>
+                {filteredDomains.length} domains · page {visiblePage}/{totalPages}
+              </span>
+            </div>
+            <div className="pagination" aria-label="Domain pages">
+              <button
+                disabled={visiblePage === 1}
+                onClick={() => goToPage(visiblePage - 1)}
+                aria-label="Previous page"
+              >
+                ←
+              </button>
+              {Array.from({ length: totalPages }, (_, index) => index + 1).map(
+                (page) => (
+                  <button
+                    key={page}
+                    className={page === visiblePage ? "current" : ""}
+                    onClick={() => goToPage(page)}
+                    aria-current={page === visiblePage ? "page" : undefined}
+                  >
+                    {page}
+                  </button>
+                ),
+              )}
+              <button
+                disabled={visiblePage === totalPages}
+                onClick={() => goToPage(visiblePage + 1)}
+                aria-label="Next page"
+              >
+                →
+              </button>
+            </div>
+          </div>
+
           <div className="table-wrap">
             <table>
               <thead>
@@ -1400,7 +1513,7 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody>
-                {filteredDomains.map((domain) => (
+                {paginatedDomains.map((domain) => (
                   <tr
                     key={domain.id}
                     className={selected.includes(domain.id) ? "selected-row" : ""}
@@ -1469,6 +1582,7 @@ export default function Home() {
                     resetFilters();
                     setBulkDomainNames([]);
                     setBulkResult(null);
+                    setCurrentPage(1);
                   }}
                 >
                   Clear filters
@@ -1479,19 +1593,35 @@ export default function Home() {
 
           <footer className="table-footer">
             <span>
-              Showing <strong>{filteredDomains.length}</strong> of{" "}
-              <strong>{domains.length}</strong> domains
+              Showing <strong>{firstVisibleDomain}–{lastVisibleDomain}</strong> of{" "}
+              <strong>{filteredDomains.length}</strong> matching domains
             </span>
             <div className="pagination">
-              <button disabled aria-label="Previous page">
+              <button
+                disabled={visiblePage === 1}
+                onClick={() => goToPage(visiblePage - 1)}
+                aria-label="Previous page"
+              >
                 ←
               </button>
-              <button className="current">1</button>
-              <button>2</button>
-              <button>3</button>
-              <span>…</span>
-              <button>43</button>
-              <button aria-label="Next page">→</button>
+              {Array.from({ length: totalPages }, (_, index) => index + 1).map(
+                (page) => (
+                  <button
+                    key={page}
+                    className={page === visiblePage ? "current" : ""}
+                    onClick={() => goToPage(page)}
+                  >
+                    {page}
+                  </button>
+                ),
+              )}
+              <button
+                disabled={visiblePage === totalPages}
+                onClick={() => goToPage(visiblePage + 1)}
+                aria-label="Next page"
+              >
+                →
+              </button>
             </div>
           </footer>
         </section>
