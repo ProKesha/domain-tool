@@ -302,6 +302,16 @@ export default function Home() {
     initialCloudflareAccounts,
   );
   const [selected, setSelected] = useState<number[]>([]);
+  const [bulkCheckOpen, setBulkCheckOpen] = useState(true);
+  const [bulkInput, setBulkInput] = useState("alpha-landing.example");
+  const [bulkDbOnly, setBulkDbOnly] = useState(false);
+  const [bulkDomainNames, setBulkDomainNames] = useState<string[]>([]);
+  const [bulkResult, setBulkResult] = useState<{
+    queried: number;
+    found: number;
+    missing: number;
+  } | null>(null);
+  const [resetFromDatabase, setResetFromDatabase] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [ncFilter, setNcFilter] = useState("all");
@@ -345,9 +355,12 @@ export default function Home() {
         cfFilter === "all" ||
         (cfFilter === "none" && !domain.cloudflare) ||
         domain.cloudflare === cfFilter;
-      return matchesSearch && matchesStatus && matchesNc && matchesCf;
+      const matchesBulk =
+        bulkDomainNames.length === 0 ||
+        bulkDomainNames.includes(domain.name.toLowerCase());
+      return matchesSearch && matchesStatus && matchesNc && matchesCf && matchesBulk;
     });
-  }, [domains, search, status, ncFilter, cfFilter]);
+  }, [domains, search, status, ncFilter, cfFilter, bulkDomainNames]);
 
   const allVisibleSelected =
     filteredDomains.length > 0 &&
@@ -552,6 +565,114 @@ export default function Home() {
       })),
     );
     showToast("Domain statuses refreshed");
+  }
+
+  function normalizeBulkDomains(value: string) {
+    return [
+      ...new Set(
+        value
+          .split(/[\s,;]+/)
+          .map((item) =>
+            item
+              .trim()
+              .toLowerCase()
+              .replace(/^https?:\/\//, "")
+              .split("/")[0]
+              .replace(/^www\./, ""),
+          )
+          .filter(Boolean),
+      ),
+    ];
+  }
+
+  function runBulkCheck() {
+    const queriedDomains = normalizeBulkDomains(bulkInput);
+    if (!queriedDomains.length) {
+      showToast("Add at least one test domain to check");
+      return;
+    }
+
+    const databaseDomains = new Set(domains.map((domain) => domain.name.toLowerCase()));
+    const found = queriedDomains.filter((domain) => databaseDomains.has(domain)).length;
+    setBulkDomainNames(queriedDomains);
+    setBulkResult({
+      queried: queriedDomains.length,
+      found,
+      missing: queriedDomains.length - found,
+    });
+    setSelected([]);
+    showToast(
+      `${queriedDomains.length} test ${queriedDomains.length === 1 ? "domain" : "domains"} checked${bulkDbOnly ? " in the local database" : " in demo mode"}`,
+    );
+  }
+
+  function clearBulkCheck() {
+    setBulkInput("");
+    setBulkDomainNames([]);
+    setBulkResult(null);
+    setSelected([]);
+  }
+
+  function deleteSelectedFromDatabase() {
+    const count = selected.length;
+    if (!count) return;
+    setDomains((current) => current.filter((domain) => !selected.includes(domain.id)));
+    setSelected([]);
+    showToast(`${count} demo ${count === 1 ? "domain" : "domains"} removed from the database`);
+  }
+
+  function removeSelectedFromCloudflare() {
+    const count = selected.length;
+    if (!count) return;
+    setDomains((current) =>
+      current.map((domain) =>
+        selected.includes(domain.id)
+          ? {
+              ...domain,
+              status: domain.namecheap === "Not assigned" ? "generated" : "imported",
+              cloudflare: null,
+              ip: null,
+              ns1: null,
+              ns2: null,
+              error: undefined,
+              lastSync: "now",
+            }
+          : domain,
+      ),
+    );
+    setSelected([]);
+    showToast(`${count} demo ${count === 1 ? "zone" : "zones"} removed from Cloudflare`);
+  }
+
+  function resetSelectedDomains() {
+    const count = selected.length;
+    if (!count) return;
+    if (resetFromDatabase) {
+      setDomains((current) => current.filter((domain) => !selected.includes(domain.id)));
+    } else {
+      setDomains((current) =>
+        current.map((domain) =>
+          selected.includes(domain.id)
+            ? {
+                ...domain,
+                status: domain.namecheap === "Not assigned" ? "generated" : "imported",
+                cloudflare: null,
+                ip: null,
+                ns1: null,
+                ns2: null,
+                error: undefined,
+                lastSync: "now",
+              }
+            : domain,
+        ),
+      );
+    }
+    setSelected([]);
+    showToast(
+      resetFromDatabase
+        ? `${count} demo ${count === 1 ? "domain" : "domains"} fully reset and removed`
+        : `${count} demo ${count === 1 ? "domain" : "domains"} reset`,
+    );
   }
 
   function startCloudflareSetup() {
@@ -984,7 +1105,12 @@ export default function Home() {
           <div className="workspace-header">
             <div>
               <p className="eyebrow">Domain workspace</p>
-              <h2>All domains</h2>
+              <h2>Domains</h2>
+              <small className="workspace-count">
+                {bulkDomainNames.length
+                  ? `${filteredDomains.length} domains · bulk search`
+                  : `${filteredDomains.length} of ${domains.length} domains`}
+              </small>
             </div>
             <div className="primary-actions">
               <button className="button button-secondary" onClick={refreshStatuses}>
@@ -1066,29 +1192,158 @@ export default function Home() {
             </button>
           </div>
 
-          {selected.length > 0 && (
-            <div className="bulk-bar">
-              <div>
-                <span className="selection-count">{selected.length}</span>
-                <strong>domains selected</strong>
-              </div>
-              <div className="bulk-actions">
-                <button onClick={() => setSetupOpen(true)}>Add to Cloudflare</button>
+          <section className="selection-panel" aria-label="Bulk domain actions">
+            <div className="selection-panel-header">
+              <span>
+                Selected: <strong>{selected.length}</strong>
+              </span>
+              <button disabled={!selected.length} onClick={() => setSelected([])}>
+                Clear selection
+              </button>
+            </div>
+            <div className="selection-groups">
+              <div className="selection-group database-actions">
+                <span className="selection-group-title">Database</span>
                 <button
-                  onClick={() => {
-                    showToast("IP change will use the Cloudflare setup dialog");
-                    setSetupOpen(true);
-                  }}
+                  className="selection-action action-danger"
+                  disabled={!selected.length}
+                  onClick={deleteSelectedFromDatabase}
                 >
-                  Change IP
+                  Delete <span aria-hidden="true">ⓘ</span>
                 </button>
-                <button onClick={refreshStatuses}>Update NS</button>
-                <button className="bulk-clear" onClick={() => setSelected([])}>
-                  Clear selection
-                </button>
+              </div>
+              <div className="selection-group cloudflare-actions">
+                <span className="selection-group-title">Cloudflare</span>
+                <div>
+                  <button
+                    className="selection-action action-purple"
+                    disabled={!selected.length}
+                    onClick={() => setSetupOpen(true)}
+                  >
+                    Add <span aria-hidden="true">ⓘ</span>
+                  </button>
+                  <button
+                    className="selection-action action-red"
+                    disabled={!selected.length}
+                    onClick={removeSelectedFromCloudflare}
+                  >
+                    Remove <span aria-hidden="true">ⓘ</span>
+                  </button>
+                  <button
+                    className="selection-action action-blue"
+                    disabled={!selected.length}
+                    onClick={() => {
+                      showToast("Choose the new server IP in the setup dialog");
+                      setSetupOpen(true);
+                    }}
+                  >
+                    Change IP <span aria-hidden="true">ⓘ</span>
+                  </button>
+                </div>
+              </div>
+              <div className="selection-group namecheap-actions">
+                <span className="selection-group-title">Namecheap</span>
+                <div>
+                  <button
+                    className="selection-action action-teal"
+                    disabled={!selected.length}
+                    onClick={() => showToast("Demo nameservers updated for the selection")}
+                  >
+                    NS servers <span aria-hidden="true">ⓘ</span>
+                  </button>
+                  <button
+                    className="selection-action action-indigo"
+                    disabled={!selected.length}
+                    onClick={() => showToast("Demo A records updated for the selection")}
+                  >
+                    A records <span aria-hidden="true">ⓘ</span>
+                  </button>
+                </div>
+              </div>
+              <div className="selection-group reset-actions">
+                <span className="selection-group-title">Full reset</span>
+                <div>
+                  <button
+                    className="selection-action action-reset"
+                    disabled={!selected.length}
+                    onClick={resetSelectedDomains}
+                  >
+                    Reset all <span aria-hidden="true">ⓘ</span>
+                  </button>
+                  <label className="reset-toggle">
+                    <input
+                      type="checkbox"
+                      checked={resetFromDatabase}
+                      onChange={(event) => setResetFromDatabase(event.target.checked)}
+                    />
+                    <span />
+                    from database
+                  </label>
+                </div>
               </div>
             </div>
-          )}
+          </section>
+
+          <section className={`bulk-check-card ${bulkCheckOpen ? "is-open" : ""}`}>
+            <button
+              className="bulk-check-header"
+              onClick={() => setBulkCheckOpen((current) => !current)}
+              aria-expanded={bulkCheckOpen}
+            >
+              <span className="bulk-check-title">
+                <span className="bulk-check-dot" />
+                NC Bulk Check
+                {bulkResult && (
+                  <span className="bulk-check-badge">
+                    {bulkResult.found}/{bulkResult.queried}
+                  </span>
+                )}
+              </span>
+              <span className="bulk-check-chevron" aria-hidden="true">
+                {bulkCheckOpen ? "▴" : "▾"}
+              </span>
+            </button>
+            {bulkCheckOpen && (
+              <div className="bulk-check-body">
+                <textarea
+                  value={bulkInput}
+                  onChange={(event) => setBulkInput(event.target.value)}
+                  placeholder={"alpha-landing.example\nbravo-campaign.example\ncharlie-offer.example"}
+                  aria-label="Domains to check"
+                  spellCheck={false}
+                />
+                <div className="bulk-check-controls">
+                  <div>
+                    <button className="check-namecheap" onClick={runBulkCheck}>
+                      <span aria-hidden="true">▶</span> Check Namecheap
+                    </button>
+                    <button
+                      className={`db-only-button ${bulkDbOnly ? "active" : ""}`}
+                      onClick={() => setBulkDbOnly((current) => !current)}
+                      aria-pressed={bulkDbOnly}
+                    >
+                      DB only
+                    </button>
+                    <button className="clear-bulk-button" onClick={clearBulkCheck}>
+                      × Clear
+                    </button>
+                  </div>
+                  <span className="auto-detect-note">✧ Account auto-detected per domain</span>
+                </div>
+                {bulkResult && (
+                  <div className="bulk-check-summary">
+                    <span>
+                      Found: <strong>{bulkResult.found}</strong>
+                    </span>
+                    <span>
+                      Not in DB: <strong>{bulkResult.missing}</strong>
+                    </span>
+                    <span>of {bulkResult.queried} queried</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
 
           <div className="table-wrap">
             <table>
@@ -1177,7 +1432,15 @@ export default function Home() {
               <div className="empty-state">
                 <span>⌕</span>
                 <h3>No domains match these filters</h3>
-                <button onClick={resetFilters}>Clear filters</button>
+                <button
+                  onClick={() => {
+                    resetFilters();
+                    setBulkDomainNames([]);
+                    setBulkResult(null);
+                  }}
+                >
+                  Clear filters
+                </button>
               </div>
             )}
           </div>
