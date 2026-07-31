@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 type DomainStatus =
   | "active"
+  | "generated"
   | "imported"
   | "waiting_ns"
   | "processing"
@@ -29,6 +30,13 @@ type DnsRecord = {
   name: string;
   content: string;
   proxied: boolean;
+};
+
+type AddedConnection = {
+  id: number;
+  type: "cloudflare" | "namecheap";
+  label: string;
+  detail: string;
 };
 
 const accounts = [
@@ -178,6 +186,7 @@ const statusMeta: Record<
   { label: string; dot: string; className: string }
 > = {
   active: { label: "Active", dot: "●", className: "status-active" },
+  generated: { label: "Generated", dot: "✦", className: "status-generated" },
   imported: { label: "Imported", dot: "○", className: "status-imported" },
   waiting_ns: { label: "Waiting for NS", dot: "◒", className: "status-waiting" },
   processing: { label: "Processing", dot: "◌", className: "status-processing" },
@@ -223,6 +232,18 @@ export default function Home() {
   const [records, setRecords] = useState(initialRecords);
   const [setupOpen, setSetupOpen] = useState(false);
   const [accountsOpen, setAccountsOpen] = useState(false);
+  const [generatorType, setGeneratorType] = useState("vowel-consonant");
+  const [generatorTld, setGeneratorTld] = useState("example");
+  const [generatorCount, setGeneratorCount] = useState("10");
+  const [saveGenerated, setSaveGenerated] = useState(true);
+  const [accountType, setAccountType] = useState<"cloudflare" | "namecheap">(
+    "cloudflare",
+  );
+  const [accountLabel, setAccountLabel] = useState("");
+  const [accountUsername, setAccountUsername] = useState("");
+  const [accountSecret, setAccountSecret] = useState("");
+  const [accountClientIp, setAccountClientIp] = useState("192.0.2.50");
+  const [addedConnections, setAddedConnections] = useState<AddedConnection[]>([]);
   const [setupAccount, setSetupAccount] = useState("Cloudflare Demo 01");
   const [serverIp, setServerIp] = useState("192.0.2.10");
   const [proxied, setProxied] = useState(true);
@@ -324,6 +345,95 @@ export default function Home() {
       return [...imported.filter((domain) => !ids.has(domain.id)), ...current];
     });
     showToast("2 new domains imported from Namecheap");
+  }
+
+  function generateDomains() {
+    const requestedCount = Number.parseInt(generatorCount, 10);
+    const count = Math.min(Math.max(Number.isNaN(requestedCount) ? 1 : requestedCount, 1), 50);
+    const tld =
+      generatorTld
+        .trim()
+        .toLowerCase()
+        .replace(/^\.+/, "")
+        .replace(/[^a-z0-9-]/g, "") || "example";
+    const phoneticNames = [
+      "lumavi",
+      "denoro",
+      "kaseti",
+      "rimavo",
+      "beluni",
+      "tosari",
+      "navelo",
+      "pidaru",
+      "zelomi",
+      "fureta",
+    ];
+    const wordNames = [
+      "bright-path",
+      "north-star",
+      "clear-view",
+      "smart-route",
+      "fresh-start",
+      "open-field",
+      "next-wave",
+      "prime-point",
+      "blue-orbit",
+      "good-signal",
+    ];
+    const timestamp = Date.now();
+    const generated: Domain[] = Array.from({ length: count }, (_, index) => {
+      const source = generatorType === "words" ? wordNames : phoneticNames;
+      const cycle = Math.floor(index / source.length);
+      const base = `${source[index % source.length]}${cycle ? `-${cycle + 1}` : ""}`;
+
+      return {
+        id: timestamp + index,
+        name: `${base}.${tld}`,
+        status: "generated",
+        namecheap: "Not assigned",
+        cloudflare: null,
+        ip: null,
+        ns1: null,
+        ns2: null,
+        expires: "Not registered",
+        lastSync: "now",
+      };
+    });
+
+    if (saveGenerated) {
+      setDomains((current) => [...generated, ...current]);
+      showToast(`${count} test domain names added to the workspace`);
+    } else {
+      showToast(`${count} test domain names generated (preview only)`);
+    }
+  }
+
+  function addAccount() {
+    const label = accountLabel.trim();
+    const username = accountUsername.trim();
+    const secret = accountSecret.trim();
+
+    if (!label || !secret || (accountType === "namecheap" && !username)) {
+      showToast("Complete the required test fields first");
+      return;
+    }
+
+    setAddedConnections((current) => [
+      ...current,
+      {
+        id: Date.now(),
+        type: accountType,
+        label,
+        detail:
+          accountType === "cloudflare"
+            ? "Demo API token · Zone + DNS edit"
+            : `${username} · ${accountClientIp || "Test IP not set"}`,
+      },
+    ]);
+    setAccountLabel("");
+    setAccountUsername("");
+    setAccountSecret("");
+    showToast(`${label} added as a demo connection`);
   }
 
   function refreshStatuses() {
@@ -480,13 +590,163 @@ export default function Home() {
               </article>
             );
           })}
-          <button className="add-account-card" onClick={() => setAccountsOpen(true)}>
+          <button
+            className="add-account-card"
+            onClick={() =>
+              document
+                .getElementById("add-account-panel")
+                ?.scrollIntoView({ behavior: "smooth", block: "center" })
+            }
+          >
             <span className="plus">+</span>
             <span>
               <strong>Add account</strong>
               <small>Namecheap or Cloudflare</small>
             </span>
           </button>
+        </section>
+
+        <section className="quick-tools-grid" aria-label="Domain tools">
+          <article className="tool-card">
+            <div className="tool-card-heading">
+              <span className="tool-icon generator">Aa</span>
+              <div>
+                <p className="eyebrow">Name ideas</p>
+                <h2>Generate domains</h2>
+              </div>
+              <span className="demo-only">Demo only</span>
+            </div>
+            <div className="tool-form generator-form">
+              <label>
+                <span>Generator type</span>
+                <select
+                  value={generatorType}
+                  onChange={(event) => setGeneratorType(event.target.value)}
+                >
+                  <option value="vowel-consonant">Vowel / consonant</option>
+                  <option value="words">Two simple words</option>
+                </select>
+              </label>
+              <div className="tool-form-row">
+                <label>
+                  <span>TLD</span>
+                  <div className="prefix-input">
+                    <b>.</b>
+                    <input
+                      value={generatorTld}
+                      onChange={(event) => setGeneratorTld(event.target.value)}
+                      placeholder="example"
+                    />
+                  </div>
+                </label>
+                <label>
+                  <span>Count</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={generatorCount}
+                    onChange={(event) => setGeneratorCount(event.target.value)}
+                  />
+                </label>
+              </div>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={saveGenerated}
+                  onChange={(event) => setSaveGenerated(event.target.checked)}
+                />
+                <span>Add generated names to the workspace</span>
+              </label>
+              <button className="button button-primary tool-submit" onClick={generateDomains}>
+                Generate domains
+              </button>
+            </div>
+          </article>
+
+          <article className="tool-card" id="add-account-panel">
+            <div className="tool-card-heading">
+              <span className={`tool-icon ${accountType === "cloudflare" ? "cf" : "nc"}`}>
+                {accountType === "cloudflare" ? "CF" : "NC"}
+              </span>
+              <div>
+                <p className="eyebrow">Connections</p>
+                <h2>Add account</h2>
+              </div>
+              <span className="demo-only">Test credentials</span>
+            </div>
+            <div className="account-type-tabs" role="tablist" aria-label="Account type">
+              <button
+                className={accountType === "cloudflare" ? "active" : ""}
+                onClick={() => setAccountType("cloudflare")}
+                role="tab"
+                aria-selected={accountType === "cloudflare"}
+              >
+                Cloudflare
+              </button>
+              <button
+                className={accountType === "namecheap" ? "active" : ""}
+                onClick={() => setAccountType("namecheap")}
+                role="tab"
+                aria-selected={accountType === "namecheap"}
+              >
+                Namecheap
+              </button>
+            </div>
+            <div className="tool-form">
+              <label>
+                <span>Account label</span>
+                <input
+                  value={accountLabel}
+                  onChange={(event) => setAccountLabel(event.target.value)}
+                  placeholder={
+                    accountType === "cloudflare"
+                      ? "Cloudflare Demo 03"
+                      : "Namecheap Demo 04"
+                  }
+                />
+              </label>
+              {accountType === "namecheap" && (
+                <div className="tool-form-row">
+                  <label>
+                    <span>API user / username</span>
+                    <input
+                      value={accountUsername}
+                      onChange={(event) => setAccountUsername(event.target.value)}
+                      placeholder="demo-nc-user-004"
+                    />
+                  </label>
+                  <label>
+                    <span>Whitelisted client IP</span>
+                    <input
+                      value={accountClientIp}
+                      onChange={(event) => setAccountClientIp(event.target.value)}
+                      placeholder="192.0.2.50"
+                    />
+                  </label>
+                </div>
+              )}
+              <label>
+                <span>{accountType === "cloudflare" ? "API token" : "API key"}</span>
+                <input
+                  type="password"
+                  value={accountSecret}
+                  onChange={(event) => setAccountSecret(event.target.value)}
+                  placeholder={
+                    accountType === "cloudflare" ? "demo_cf_token_••••" : "demo_nc_key_••••"
+                  }
+                  autoComplete="new-password"
+                />
+              </label>
+              <div className="credential-note">
+                <span>i</span>
+                Prototype mode: use test values only. Credentials are not sent anywhere.
+              </div>
+              <button className="button button-orange tool-submit" onClick={addAccount}>
+                Add {accountType === "cloudflare" ? "Cloudflare" : "Namecheap"} account
+              </button>
+            </div>
+          </article>
         </section>
 
         <section className="workspace">
@@ -539,6 +799,7 @@ export default function Home() {
               <select value={status} onChange={(event) => setStatus(event.target.value)}>
                 <option value="all">All statuses</option>
                 <option value="active">Active</option>
+                <option value="generated">Generated</option>
                 <option value="imported">Imported</option>
                 <option value="waiting_ns">Waiting for NS</option>
                 <option value="processing">Processing</option>
@@ -876,8 +1137,37 @@ export default function Home() {
                   Test
                 </button>
               </article>
+              {addedConnections.map((connection) => (
+                <article key={connection.id}>
+                  <span className={`account-icon ${connection.type === "cloudflare" ? "cf" : "nc"}`}>
+                    {connection.type === "cloudflare" ? "CF" : "NC"}
+                  </span>
+                  <div>
+                    <strong>{connection.label}</strong>
+                    <small>{connection.detail}</small>
+                  </div>
+                  <span className="connection-status">Demo</span>
+                  <button onClick={() => showToast(`${connection.label} test passed`)}>
+                    Test
+                  </button>
+                </article>
+              ))}
             </div>
-            <button className="add-connection-button">+ Add new connection</button>
+            <button
+              className="add-connection-button"
+              onClick={() => {
+                setAccountsOpen(false);
+                window.setTimeout(
+                  () =>
+                    document
+                      .getElementById("add-account-panel")
+                      ?.scrollIntoView({ behavior: "smooth", block: "center" }),
+                  50,
+                );
+              }}
+            >
+              + Add new connection
+            </button>
           </section>
         </div>
       )}
@@ -941,7 +1231,9 @@ export default function Home() {
                   <dl>
                     <div>
                       <dt>Registrar status</dt>
-                      <dd className="ok-value">● Active</dd>
+                      <dd className={activeDomain.status === "generated" ? "" : "ok-value"}>
+                        {activeDomain.status === "generated" ? "○ Not registered" : "● Active"}
+                      </dd>
                     </div>
                     <div>
                       <dt>Expires</dt>
