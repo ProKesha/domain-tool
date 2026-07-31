@@ -295,6 +295,16 @@ function StatusPill({ status }: { status: DomainStatus }) {
   );
 }
 
+function normalizeDomainName(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .split(/[/?#]/)[0]
+    .replace(/^www\./, "")
+    .replace(/\.+$/, "");
+}
+
 export default function Home() {
   const [domains, setDomains] = useState(initialDomains);
   const [namecheapAccounts, setNamecheapAccounts] = useState(initialNamecheapAccounts);
@@ -346,6 +356,14 @@ export default function Home() {
 
   const filteredDomains = useMemo(() => {
     return domains.filter((domain) => {
+      const normalizedDomain = normalizeDomainName(domain.name);
+      const matchesBulk =
+        bulkDomainNames.length === 0 || bulkDomainNames.includes(normalizedDomain);
+
+      if (bulkDomainNames.length > 0) {
+        return matchesBulk;
+      }
+
       const matchesSearch = domain.name
         .toLowerCase()
         .includes(search.toLowerCase().trim());
@@ -355,10 +373,7 @@ export default function Home() {
         cfFilter === "all" ||
         (cfFilter === "none" && !domain.cloudflare) ||
         domain.cloudflare === cfFilter;
-      const matchesBulk =
-        bulkDomainNames.length === 0 ||
-        bulkDomainNames.includes(domain.name.toLowerCase());
-      return matchesSearch && matchesStatus && matchesNc && matchesCf && matchesBulk;
+      return matchesSearch && matchesStatus && matchesNc && matchesCf;
     });
   }, [domains, search, status, ncFilter, cfFilter, bulkDomainNames]);
 
@@ -572,14 +587,7 @@ export default function Home() {
       ...new Set(
         value
           .split(/[\s,;]+/)
-          .map((item) =>
-            item
-              .trim()
-              .toLowerCase()
-              .replace(/^https?:\/\//, "")
-              .split("/")[0]
-              .replace(/^www\./, ""),
-          )
+          .map(normalizeDomainName)
           .filter(Boolean),
       ),
     ];
@@ -592,7 +600,9 @@ export default function Home() {
       return;
     }
 
-    const databaseDomains = new Set(domains.map((domain) => domain.name.toLowerCase()));
+    const databaseDomains = new Set(
+      domains.map((domain) => normalizeDomainName(domain.name)),
+    );
     const found = queriedDomains.filter((domain) => databaseDomains.has(domain)).length;
     setBulkDomainNames(queriedDomains);
     setBulkResult({
