@@ -363,6 +363,7 @@ export default function Home() {
   const [drawerTab, setDrawerTab] = useState<"overview" | "dns">("overview");
   const [records, setRecords] = useState(initialRecords);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [setupMode, setSetupMode] = useState<"add" | "change_ip">("add");
   const [accountsOpen, setAccountsOpen] = useState(false);
   const [purchasesOpen, setPurchasesOpen] = useState(false);
   const [balanceOpen, setBalanceOpen] = useState(false);
@@ -760,17 +761,24 @@ export default function Home() {
     );
   }
 
+  function openCloudflareSetup(mode: "add" | "change_ip") {
+    setSetupMode(mode);
+    setSetupOpen(true);
+  }
+
   function startCloudflareSetup() {
     if (!selected.length || !serverIp.trim()) return;
+    const selectedIds = [...selected];
+    const isIpChange = setupMode === "change_ip";
     setJobRunning(true);
     setSetupOpen(false);
     setDomains((current) =>
       current.map((domain) =>
-        selected.includes(domain.id)
+        selectedIds.includes(domain.id)
           ? {
               ...domain,
               status: "processing",
-              cloudflare: setupAccount,
+              cloudflare: isIpChange ? domain.cloudflare : setupAccount,
               ip: serverIp,
               error: undefined,
               lastSync: "now",
@@ -781,19 +789,23 @@ export default function Home() {
     window.setTimeout(() => {
       setDomains((current) =>
         current.map((domain) =>
-          selected.includes(domain.id)
+          selectedIds.includes(domain.id)
             ? {
                 ...domain,
-                status: "waiting_ns",
-                ns1: "ns3.cloudflare-demo.example",
-                ns2: "ns4.cloudflare-demo.example",
+                status: isIpChange ? "active" : "waiting_ns",
+                ns1: isIpChange ? domain.ns1 : "ns3.cloudflare-demo.example",
+                ns2: isIpChange ? domain.ns2 : "ns4.cloudflare-demo.example",
                 lastSync: "just now",
               }
             : domain,
         ),
       );
       setJobRunning(false);
-      showToast(`${selected.length} domains sent to Cloudflare`);
+      showToast(
+        isIpChange
+          ? `Server IP changed for ${selectedIds.length} demo ${selectedIds.length === 1 ? "domain" : "domains"}`
+          : `${selectedIds.length} demo ${selectedIds.length === 1 ? "domain" : "domains"} sent to Cloudflare`,
+      );
       setSelected([]);
     }, 2200);
   }
@@ -1208,7 +1220,7 @@ export default function Home() {
               <button
                 className="button button-primary"
                 disabled={!selected.length}
-                onClick={() => setSetupOpen(true)}
+                onClick={() => openCloudflareSetup("add")}
               >
                 <span aria-hidden="true">✦</span> Add to Cloudflare
               </button>
@@ -1219,8 +1231,16 @@ export default function Home() {
             <div className="job-banner" role="status">
               <span className="spinner" />
               <div>
-                <strong>Cloudflare setup is running</strong>
-                <small>Creating zones and requesting nameservers…</small>
+                <strong>
+                  {setupMode === "change_ip"
+                    ? "Cloudflare IP update is running"
+                    : "Cloudflare setup is running"}
+                </strong>
+                <small>
+                  {setupMode === "change_ip"
+                    ? "Replacing @ and * A records on selected zones…"
+                    : "Creating zones and requesting nameservers…"}
+                </small>
               </div>
               <span>{selected.length} domains</span>
             </div>
@@ -1305,41 +1325,84 @@ export default function Home() {
             <div className="selection-groups">
               <div className="selection-group database-actions">
                 <span className="selection-group-title">Database</span>
-                <button
-                  className="selection-action action-danger"
-                  disabled={!selected.length}
-                  onClick={deleteSelectedFromDatabase}
-                >
-                  Delete <span aria-hidden="true">ⓘ</span>
-                </button>
+                <div>
+                  <span className="action-tooltip-wrap">
+                    <button
+                      className="selection-action action-danger"
+                      disabled={!selected.length}
+                      onClick={deleteSelectedFromDatabase}
+                      aria-describedby="tooltip-database-delete"
+                    >
+                      Delete <span aria-hidden="true">ⓘ</span>
+                    </button>
+                    <span
+                      className="action-tooltip"
+                      id="tooltip-database-delete"
+                      role="tooltip"
+                    >
+                      Видаляє вибрані домени лише з бази даних цього інструмента.
+                      У Cloudflare та Namecheap нічого не змінюється.
+                    </span>
+                  </span>
+                </div>
               </div>
               <div className="selection-group cloudflare-actions">
                 <span className="selection-group-title">Cloudflare</span>
                 <div>
-                  <button
-                    className="selection-action action-purple"
-                    disabled={!selected.length}
-                    onClick={() => setSetupOpen(true)}
-                  >
-                    Add <span aria-hidden="true">ⓘ</span>
-                  </button>
-                  <button
-                    className="selection-action action-red"
-                    disabled={!selected.length}
-                    onClick={removeSelectedFromCloudflare}
-                  >
-                    Remove <span aria-hidden="true">ⓘ</span>
-                  </button>
-                  <button
-                    className="selection-action action-blue"
-                    disabled={!selected.length}
-                    onClick={() => {
-                      showToast("Choose the new server IP in the setup dialog");
-                      setSetupOpen(true);
-                    }}
-                  >
-                    Change IP <span aria-hidden="true">ⓘ</span>
-                  </button>
+                  <span className="action-tooltip-wrap">
+                    <button
+                      className="selection-action action-purple"
+                      disabled={!selected.length}
+                      onClick={() => openCloudflareSetup("add")}
+                      aria-describedby="tooltip-cloudflare-add"
+                    >
+                      Add <span aria-hidden="true">ⓘ</span>
+                    </button>
+                    <span
+                      className="action-tooltip"
+                      id="tooltip-cloudflare-add"
+                      role="tooltip"
+                    >
+                      Створює зони Cloudflare для вибраних доменів, вмикає Flexible
+                      SSL і додає A-записи @ та * на вказаний IP.
+                    </span>
+                  </span>
+                  <span className="action-tooltip-wrap">
+                    <button
+                      className="selection-action action-red"
+                      disabled={!selected.length}
+                      onClick={removeSelectedFromCloudflare}
+                      aria-describedby="tooltip-cloudflare-remove"
+                    >
+                      Remove <span aria-hidden="true">ⓘ</span>
+                    </button>
+                    <span
+                      className="action-tooltip"
+                      id="tooltip-cloudflare-remove"
+                      role="tooltip"
+                    >
+                      Видаляє зону домену та всі її DNS-записи лише з Cloudflare.
+                      У Namecheap і базі даних домен залишається.
+                    </span>
+                  </span>
+                  <span className="action-tooltip-wrap">
+                    <button
+                      className="selection-action action-blue"
+                      disabled={!selected.length}
+                      onClick={() => openCloudflareSetup("change_ip")}
+                      aria-describedby="tooltip-cloudflare-ip"
+                    >
+                      Change IP <span aria-hidden="true">ⓘ</span>
+                    </button>
+                    <span
+                      className="action-tooltip"
+                      id="tooltip-cloudflare-ip"
+                      role="tooltip"
+                    >
+                      Замінює старі A-записи у вибраних зонах Cloudflare на нові @
+                      та * для вказаного IP. Зона та NS-сервери не змінюються.
+                    </span>
+                  </span>
                 </div>
               </div>
               <div className="selection-group namecheap-actions">
@@ -1640,7 +1703,11 @@ export default function Home() {
                 <span className="modal-icon">CF</span>
                 <div>
                   <p className="eyebrow">Bulk operation</p>
-                  <h2 id="setup-title">Add to Cloudflare</h2>
+                  <h2 id="setup-title">
+                    {setupMode === "change_ip"
+                      ? "Change Cloudflare IP"
+                      : "Add to Cloudflare"}
+                  </h2>
                 </div>
               </div>
               <button
@@ -1663,16 +1730,23 @@ export default function Home() {
               </span>
             </div>
             <div className="form-grid">
-              <label>
-                <span>Cloudflare account</span>
-                <select
-                  value={setupAccount}
-                  onChange={(event) => setSetupAccount(event.target.value)}
-                >
-                  <option>Cloudflare Demo 01</option>
-                  <option>Cloudflare Demo 02</option>
-                </select>
-              </label>
+              {setupMode === "add" ? (
+                <label>
+                  <span>Cloudflare account</span>
+                  <select
+                    value={setupAccount}
+                    onChange={(event) => setSetupAccount(event.target.value)}
+                  >
+                    <option>Cloudflare Demo 01</option>
+                    <option>Cloudflare Demo 02</option>
+                  </select>
+                </label>
+              ) : (
+                <label>
+                  <span>Cloudflare account</span>
+                  <input value="Auto-detected for every domain" disabled readOnly />
+                </label>
+              )}
               <label>
                 <span>Buyer server IP</span>
                 <input
@@ -1685,8 +1759,14 @@ export default function Home() {
             <div className="dns-template">
               <div className="dns-template-heading">
                 <div>
-                  <strong>DNS template</strong>
-                  <small>Records created for every domain</small>
+                  <strong>
+                    {setupMode === "change_ip" ? "A record replacement" : "DNS template"}
+                  </strong>
+                  <small>
+                    {setupMode === "change_ip"
+                      ? "Existing @ and * records will be replaced"
+                      : "Records created for every domain"}
+                  </small>
                 </div>
                 <label className="switch-row">
                   <span>Cloudflare proxy</span>
@@ -1720,8 +1800,9 @@ export default function Home() {
             <div className="process-note">
               <span aria-hidden="true">i</span>
               <p>
-                The tool will create Cloudflare zones, update Namecheap
-                nameservers and add both DNS records automatically.
+                {setupMode === "change_ip"
+                  ? "The tool will keep each zone and its nameservers, remove old A records and create new @ and * records for the specified IP."
+                  : "The tool will create Cloudflare zones, update Namecheap nameservers and add both DNS records automatically."}
               </p>
             </div>
             <div className="modal-actions">
@@ -1733,7 +1814,7 @@ export default function Home() {
                 onClick={startCloudflareSetup}
                 disabled={!serverIp.trim()}
               >
-                Start setup
+                {setupMode === "change_ip" ? "Change IP" : "Start setup"}
               </button>
             </div>
           </section>

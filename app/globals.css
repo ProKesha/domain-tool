@@ -959,8 +959,10 @@ button:disabled {
 }
 
 .selection-panel {
+  position: relative;
+  z-index: 8;
   margin: 16px 18px 0;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid var(--line-light);
   border-radius: 15px;
   background: #12171f;
@@ -1044,6 +1046,73 @@ button:disabled {
   font-weight: 800;
   white-space: nowrap;
   transition: transform 140ms ease, filter 140ms ease, opacity 140ms ease;
+}
+
+.action-tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  flex: 1;
+}
+
+.action-tooltip-wrap .selection-action {
+  width: 100%;
+}
+
+.action-tooltip {
+  position: absolute;
+  z-index: 40;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  width: 300px;
+  max-width: calc(100vw - 44px);
+  padding: 13px 15px;
+  border: 1px solid #34445d;
+  border-radius: 11px;
+  background: #0d1625;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+  color: #cbd4e1;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.55;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 7px);
+  transition: opacity 140ms ease, transform 140ms ease;
+  white-space: normal;
+}
+
+.action-tooltip::after {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-right: 1px solid #34445d;
+  border-bottom: 1px solid #34445d;
+  background: #0d1625;
+  content: "";
+  transform: translate(-50%, -5px) rotate(45deg);
+}
+
+.action-tooltip-wrap:hover .action-tooltip,
+.action-tooltip-wrap:focus-within .action-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.database-actions .action-tooltip {
+  left: 0;
+  transform: translate(0, 7px);
+}
+
+.database-actions .action-tooltip::after {
+  left: 26%;
+}
+
+.database-actions .action-tooltip-wrap:hover .action-tooltip,
+.database-actions .action-tooltip-wrap:focus-within .action-tooltip {
+  transform: translate(0, 0);
 }
 
 .selection-action:not(:disabled):hover {
