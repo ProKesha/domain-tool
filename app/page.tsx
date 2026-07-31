@@ -313,7 +313,7 @@ export default function Home() {
   );
   const [selected, setSelected] = useState<number[]>([]);
   const [bulkCheckOpen, setBulkCheckOpen] = useState(true);
-  const [bulkInput, setBulkInput] = useState("alpha-landing.example");
+  const [bulkInput, setBulkInput] = useState("");
   const [bulkDbOnly, setBulkDbOnly] = useState(false);
   const [bulkDomainNames, setBulkDomainNames] = useState<string[]>([]);
   const [bulkResult, setBulkResult] = useState<{
@@ -356,6 +356,10 @@ export default function Home() {
 
   useEffect(() => {
     const savedBulkInput = window.localStorage.getItem("domain-tool:bulk-input");
+    if (savedBulkInput === "alpha-landing.example") {
+      window.localStorage.removeItem("domain-tool:bulk-input");
+      return;
+    }
     if (savedBulkInput === null) return;
     const frame = window.requestAnimationFrame(() => setBulkInput(savedBulkInput));
     return () => window.cancelAnimationFrame(frame);
