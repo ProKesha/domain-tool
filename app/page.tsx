@@ -33,27 +33,27 @@ type DnsRecord = {
 
 const accounts = [
   {
-    id: "nc-main",
-    label: "NC Main",
-    detail: "rosicatosheva432",
+    id: "nc-demo-01",
+    label: "Namecheap Demo 01",
+    detail: "demo-nc-user-001",
     used: 245,
     limit: 300,
     expiring: 12,
     tone: "violet",
   },
   {
-    id: "nc-bg",
-    label: "NC BG 02",
-    detail: "ak146-business",
+    id: "nc-demo-02",
+    label: "Namecheap Demo 02",
+    detail: "demo-nc-user-002",
     used: 168,
     limit: 250,
     expiring: 4,
     tone: "cyan",
   },
   {
-    id: "nc-reserve",
-    label: "NC Reserve",
-    detail: "domains-reserve",
+    id: "nc-demo-03",
+    label: "Namecheap Demo 03",
+    detail: "demo-nc-user-003",
     used: 92,
     limit: 200,
     expiring: 1,
@@ -64,57 +64,57 @@ const accounts = [
 const initialDomains: Domain[] = [
   {
     id: 15658,
-    name: "strefabiznesudejo.com",
+    name: "alpha-landing.example",
     status: "active",
-    namecheap: "NC Main",
-    cloudflare: "CF Main",
-    ip: "45.140.204.168",
-    ns1: "maciej.ns.cloudflare.com",
-    ns2: "raina.ns.cloudflare.com",
+    namecheap: "Namecheap Demo 01",
+    cloudflare: "Cloudflare Demo 01",
+    ip: "192.0.2.10",
+    ns1: "ns1.cloudflare-demo.example",
+    ns2: "ns2.cloudflare-demo.example",
     expires: "30 Jul 2027",
     lastSync: "2 min ago",
   },
   {
     id: 15657,
-    name: "swiatwiedzy.info",
+    name: "bravo-campaign.example",
     status: "active",
-    namecheap: "NC Main",
-    cloudflare: "CF Main",
-    ip: "45.140.204.168",
-    ns1: "maciej.ns.cloudflare.com",
-    ns2: "raina.ns.cloudflare.com",
+    namecheap: "Namecheap Demo 01",
+    cloudflare: "Cloudflare Demo 01",
+    ip: "192.0.2.10",
+    ns1: "ns1.cloudflare-demo.example",
+    ns2: "ns2.cloudflare-demo.example",
     expires: "18 Jul 2027",
     lastSync: "2 min ago",
   },
   {
     id: 15656,
-    name: "twojafirma.info",
+    name: "charlie-offer.example",
     status: "waiting_ns",
-    namecheap: "NC Main",
-    cloudflare: "CF Main",
-    ip: "45.140.204.168",
-    ns1: "dahlia.ns.cloudflare.com",
-    ns2: "osmar.ns.cloudflare.com",
+    namecheap: "Namecheap Demo 01",
+    cloudflare: "Cloudflare Demo 01",
+    ip: "192.0.2.10",
+    ns1: "ns3.cloudflare-demo.example",
+    ns2: "ns4.cloudflare-demo.example",
     expires: "18 Jul 2027",
     lastSync: "5 min ago",
   },
   {
     id: 15655,
-    name: "prosty-biznes.com",
+    name: "delta-preview.example",
     status: "active",
-    namecheap: "NC BG 02",
-    cloudflare: "CF Buyers",
-    ip: "91.199.147.242",
-    ns1: "dahlia.ns.cloudflare.com",
-    ns2: "osmar.ns.cloudflare.com",
+    namecheap: "Namecheap Demo 02",
+    cloudflare: "Cloudflare Demo 02",
+    ip: "198.51.100.24",
+    ns1: "ns3.cloudflare-demo.example",
+    ns2: "ns4.cloudflare-demo.example",
     expires: "04 Jul 2027",
     lastSync: "8 min ago",
   },
   {
     id: 15654,
-    name: "polskiporadnik.com",
+    name: "echo-project.example",
     status: "imported",
-    namecheap: "NC BG 02",
+    namecheap: "Namecheap Demo 02",
     cloudflare: null,
     ip: null,
     ns1: null,
@@ -124,9 +124,9 @@ const initialDomains: Domain[] = [
   },
   {
     id: 15653,
-    name: "noweprojekty.com",
+    name: "foxtrot-media.example",
     status: "imported",
-    namecheap: "NC Reserve",
+    namecheap: "Namecheap Demo 03",
     cloudflare: null,
     ip: null,
     ns1: null,
@@ -136,11 +136,11 @@ const initialDomains: Domain[] = [
   },
   {
     id: 15652,
-    name: "centrumrozwoju.net",
+    name: "gamma-campaign.example",
     status: "processing",
-    namecheap: "NC Main",
-    cloudflare: "CF Main",
-    ip: "45.140.204.168",
+    namecheap: "Namecheap Demo 01",
+    cloudflare: "Cloudflare Demo 01",
+    ip: "192.0.2.10",
     ns1: null,
     ns2: null,
     expires: "22 Jul 2027",
@@ -148,11 +148,11 @@ const initialDomains: Domain[] = [
   },
   {
     id: 15651,
-    name: "poradnikonline.info",
+    name: "hotel-preview.example",
     status: "error",
-    namecheap: "NC BG 02",
-    cloudflare: "CF Buyers",
-    ip: "91.199.147.242",
+    namecheap: "Namecheap Demo 02",
+    cloudflare: "Cloudflare Demo 02",
+    ip: "198.51.100.24",
     ns1: null,
     ns2: null,
     expires: "16 Aug 2027",
@@ -161,13 +161,13 @@ const initialDomains: Domain[] = [
   },
   {
     id: 15650,
-    name: "twojnowystart.com",
+    name: "india-landing.example",
     status: "active",
-    namecheap: "NC Main",
-    cloudflare: "CF Main",
-    ip: "45.140.204.168",
-    ns1: "maciej.ns.cloudflare.com",
-    ns2: "raina.ns.cloudflare.com",
+    namecheap: "Namecheap Demo 01",
+    cloudflare: "Cloudflare Demo 01",
+    ip: "192.0.2.10",
+    ns1: "ns1.cloudflare-demo.example",
+    ns2: "ns2.cloudflare-demo.example",
     expires: "08 Sep 2027",
     lastSync: "31 min ago",
   },
@@ -189,14 +189,14 @@ const initialRecords: DnsRecord[] = [
     id: 1,
     type: "A",
     name: "@",
-    content: "45.140.204.168",
+    content: "192.0.2.10",
     proxied: true,
   },
   {
     id: 2,
     type: "A",
     name: "*",
-    content: "45.140.204.168",
+    content: "192.0.2.10",
     proxied: true,
   },
 ];
@@ -223,8 +223,8 @@ export default function Home() {
   const [records, setRecords] = useState(initialRecords);
   const [setupOpen, setSetupOpen] = useState(false);
   const [accountsOpen, setAccountsOpen] = useState(false);
-  const [setupAccount, setSetupAccount] = useState("CF Main");
-  const [serverIp, setServerIp] = useState("45.140.204.168");
+  const [setupAccount, setSetupAccount] = useState("Cloudflare Demo 01");
+  const [serverIp, setServerIp] = useState("192.0.2.10");
   const [proxied, setProxied] = useState(true);
   const [jobRunning, setJobRunning] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -296,9 +296,9 @@ export default function Home() {
     const imported: Domain[] = [
       {
         id: 15661,
-        name: "dobrywybor.info",
+        name: "kilo-demo.example",
         status: "imported",
-        namecheap: "NC Main",
+        namecheap: "Namecheap Demo 01",
         cloudflare: null,
         ip: null,
         ns1: null,
@@ -308,9 +308,9 @@ export default function Home() {
       },
       {
         id: 15660,
-        name: "strefasukcesu.com",
+        name: "lima-demo.example",
         status: "imported",
-        namecheap: "NC Main",
+        namecheap: "Namecheap Demo 01",
         cloudflare: null,
         ip: null,
         ns1: null,
@@ -362,8 +362,8 @@ export default function Home() {
             ? {
                 ...domain,
                 status: "waiting_ns",
-                ns1: "dahlia.ns.cloudflare.com",
-                ns2: "osmar.ns.cloudflare.com",
+                ns1: "ns3.cloudflare-demo.example",
+                ns2: "ns4.cloudflare-demo.example",
                 lastSync: "just now",
               }
             : domain,
@@ -376,7 +376,7 @@ export default function Home() {
   }
 
   function addDnsRecord() {
-    const ip = activeDomain?.ip || "45.140.204.168";
+    const ip = activeDomain?.ip || "192.0.2.10";
     setRecords((current) => [
       ...current,
       {
@@ -410,6 +410,7 @@ export default function Home() {
           </div>
         </div>
         <div className="topbar-actions">
+          <span className="demo-badge">Synthetic demo data</span>
           <div className="sync-meta">
             <span className="live-dot" />
             Last sync: {lastSync}
@@ -418,7 +419,7 @@ export default function Home() {
             Manage accounts
           </button>
           <button className="avatar" aria-label="Open profile">
-            DK
+            DU
           </button>
         </div>
       </header>
@@ -551,9 +552,9 @@ export default function Home() {
                 onChange={(event) => setNcFilter(event.target.value)}
               >
                 <option value="all">All Namecheap</option>
-                <option value="NC Main">NC Main</option>
-                <option value="NC BG 02">NC BG 02</option>
-                <option value="NC Reserve">NC Reserve</option>
+                <option value="Namecheap Demo 01">Namecheap Demo 01</option>
+                <option value="Namecheap Demo 02">Namecheap Demo 02</option>
+                <option value="Namecheap Demo 03">Namecheap Demo 03</option>
               </select>
             </label>
             <label>
@@ -563,8 +564,8 @@ export default function Home() {
                 onChange={(event) => setCfFilter(event.target.value)}
               >
                 <option value="all">All Cloudflare</option>
-                <option value="CF Main">CF Main</option>
-                <option value="CF Buyers">CF Buyers</option>
+                <option value="Cloudflare Demo 01">Cloudflare Demo 01</option>
+                <option value="Cloudflare Demo 02">Cloudflare Demo 02</option>
                 <option value="none">Not connected</option>
               </select>
             </label>
@@ -751,8 +752,8 @@ export default function Home() {
                   value={setupAccount}
                   onChange={(event) => setSetupAccount(event.target.value)}
                 >
-                  <option>CF Main</option>
-                  <option>CF Buyers</option>
+                  <option>Cloudflare Demo 01</option>
+                  <option>Cloudflare Demo 02</option>
                 </select>
               </label>
               <label>
@@ -863,11 +864,15 @@ export default function Home() {
               <article>
                 <span className="account-icon cf">CF</span>
                 <div>
-                  <strong>CF Main</strong>
+                  <strong>Cloudflare Demo 01</strong>
                   <small>API token · Zone + DNS edit</small>
                 </div>
                 <span className="connection-status">Connected</span>
-                <button onClick={() => showToast("CF Main connection is healthy")}>
+                <button
+                  onClick={() =>
+                    showToast("Cloudflare Demo 01 connection is healthy")
+                  }
+                >
                   Test
                 </button>
               </article>
