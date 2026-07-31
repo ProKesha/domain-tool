@@ -33,13 +33,13 @@ type DnsRecord = {
 };
 
 type AddedConnection = {
-  id: number;
+  id: string | number;
   type: "cloudflare" | "namecheap";
   label: string;
   detail: string;
 };
 
-const accounts = [
+const initialNamecheapAccounts = [
   {
     id: "nc-demo-01",
     label: "Namecheap Demo 01",
@@ -66,6 +66,21 @@ const accounts = [
     limit: 200,
     expiring: 1,
     tone: "amber",
+  },
+];
+
+const initialCloudflareAccounts: AddedConnection[] = [
+  {
+    id: "cf-demo-01",
+    type: "cloudflare",
+    label: "Cloudflare Demo 01",
+    detail: "Demo API token · Zone + DNS edit",
+  },
+  {
+    id: "cf-demo-02",
+    type: "cloudflare",
+    label: "Cloudflare Demo 02",
+    detail: "Demo API token · Zone + DNS edit",
   },
 ];
 
@@ -222,6 +237,10 @@ function StatusPill({ status }: { status: DomainStatus }) {
 
 export default function Home() {
   const [domains, setDomains] = useState(initialDomains);
+  const [namecheapAccounts, setNamecheapAccounts] = useState(initialNamecheapAccounts);
+  const [cloudflareAccounts, setCloudflareAccounts] = useState(
+    initialCloudflareAccounts,
+  );
   const [selected, setSelected] = useState<number[]>([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -243,7 +262,6 @@ export default function Home() {
   const [accountUsername, setAccountUsername] = useState("");
   const [accountSecret, setAccountSecret] = useState("");
   const [accountClientIp, setAccountClientIp] = useState("192.0.2.50");
-  const [addedConnections, setAddedConnections] = useState<AddedConnection[]>([]);
   const [setupAccount, setSetupAccount] = useState("Cloudflare Demo 01");
   const [serverIp, setServerIp] = useState("192.0.2.10");
   const [proxied, setProxied] = useState(true);
@@ -418,22 +436,46 @@ export default function Home() {
       return;
     }
 
-    setAddedConnections((current) => [
-      ...current,
-      {
-        id: Date.now(),
-        type: accountType,
-        label,
-        detail:
-          accountType === "cloudflare"
-            ? "Demo API token · Zone + DNS edit"
-            : `${username} · ${accountClientIp || "Test IP not set"}`,
-      },
-    ]);
+    if (accountType === "cloudflare") {
+      setCloudflareAccounts((current) => [
+        ...current,
+        {
+          id: Date.now(),
+          type: "cloudflare",
+          label,
+          detail: "Demo API token · Zone + DNS edit",
+        },
+      ]);
+    } else {
+      setNamecheapAccounts((current) => [
+        ...current,
+        {
+          id: `nc-demo-${Date.now()}`,
+          label,
+          detail: username,
+          used: 0,
+          limit: 300,
+          expiring: 0,
+          tone: "violet",
+        },
+      ]);
+    }
     setAccountLabel("");
     setAccountUsername("");
     setAccountSecret("");
     showToast(`${label} added as a demo connection`);
+  }
+
+  function deleteNamecheapAccount(id: string) {
+    setNamecheapAccounts((current) => current.filter((account) => account.id !== id));
+    showToast("Namecheap demo account removed");
+  }
+
+  function deleteCloudflareAccount(id: string | number) {
+    setCloudflareAccounts((current) =>
+      current.filter((account) => account.id !== id),
+    );
+    showToast("Cloudflare demo account removed");
   }
 
   function refreshStatuses() {
@@ -554,7 +596,7 @@ export default function Home() {
         </div>
 
         <section className="account-grid" aria-label="Namecheap account capacity">
-          {accounts.map((account) => {
+          {namecheapAccounts.map((account) => {
             const percentage = Math.round((account.used / account.limit) * 100);
             return (
               <article className="account-card" key={account.id}>
@@ -745,6 +787,76 @@ export default function Home() {
               <button className="button button-orange tool-submit" onClick={addAccount}>
                 Add {accountType === "cloudflare" ? "Cloudflare" : "Namecheap"} account
               </button>
+            </div>
+          </article>
+
+          <article className="tool-card accounts-tool-card">
+            <div className="tool-card-heading">
+              <span className="tool-icon accounts-icon">AC</span>
+              <div>
+                <p className="eyebrow">Connections</p>
+                <h2>Accounts</h2>
+              </div>
+              <button
+                className="panel-refresh"
+                onClick={() => showToast("Demo account list refreshed")}
+              >
+                ↻ Refresh
+              </button>
+            </div>
+            <div className="accounts-panel-list">
+              {namecheapAccounts.map((account) => (
+                <article className="account-list-item" key={account.id}>
+                  <span className="account-icon nc">NC</span>
+                  <div className="account-list-copy">
+                    <strong>{account.label}</strong>
+                    <small>{account.detail} · {account.used} domains</small>
+                  </div>
+                  <span className="connection-status">Connected</span>
+                  <div className="account-list-actions">
+                    <button
+                      onClick={() => showToast(`${account.label} test passed`)}
+                    >
+                      Test
+                    </button>
+                    <button
+                      className="delete-account"
+                      onClick={() => deleteNamecheapAccount(account.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </article>
+              ))}
+              {cloudflareAccounts.map((account) => (
+                <article className="account-list-item" key={account.id}>
+                  <span className="account-icon cf">CF</span>
+                  <div className="account-list-copy">
+                    <strong>{account.label}</strong>
+                    <small>{account.detail}</small>
+                  </div>
+                  <span className="connection-status">Connected</span>
+                  <div className="account-list-actions">
+                    <button
+                      onClick={() => showToast(`${account.label} test passed`)}
+                    >
+                      Test
+                    </button>
+                    <button
+                      className="delete-account"
+                      onClick={() => deleteCloudflareAccount(account.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </article>
+              ))}
+              {!namecheapAccounts.length && !cloudflareAccounts.length && (
+                <div className="accounts-empty">
+                  <strong>No demo accounts</strong>
+                  <span>Add a connection using the form on the left.</span>
+                </div>
+              )}
             </div>
           </article>
         </section>
@@ -1109,7 +1221,7 @@ export default function Home() {
               </button>
             </div>
             <div className="connected-list">
-              {accounts.map((account) => (
+              {namecheapAccounts.map((account) => (
                 <article key={account.id}>
                   <span className="account-icon nc">NC</span>
                   <div>
@@ -1122,31 +1234,14 @@ export default function Home() {
                   </button>
                 </article>
               ))}
-              <article>
-                <span className="account-icon cf">CF</span>
-                <div>
-                  <strong>Cloudflare Demo 01</strong>
-                  <small>API token · Zone + DNS edit</small>
-                </div>
-                <span className="connection-status">Connected</span>
-                <button
-                  onClick={() =>
-                    showToast("Cloudflare Demo 01 connection is healthy")
-                  }
-                >
-                  Test
-                </button>
-              </article>
-              {addedConnections.map((connection) => (
+              {cloudflareAccounts.map((connection) => (
                 <article key={connection.id}>
-                  <span className={`account-icon ${connection.type === "cloudflare" ? "cf" : "nc"}`}>
-                    {connection.type === "cloudflare" ? "CF" : "NC"}
-                  </span>
+                  <span className="account-icon cf">CF</span>
                   <div>
                     <strong>{connection.label}</strong>
                     <small>{connection.detail}</small>
                   </div>
-                  <span className="connection-status">Demo</span>
+                  <span className="connection-status">Connected</span>
                   <button onClick={() => showToast(`${connection.label} test passed`)}>
                     Test
                   </button>
