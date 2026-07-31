@@ -39,6 +39,15 @@ type AddedConnection = {
   detail: string;
 };
 
+type PurchaseRow = {
+  date: string;
+  buyer: string;
+  account: string;
+  server: string;
+  domains: number;
+  unitPrice: number;
+};
+
 const initialNamecheapAccounts = [
   {
     id: "nc-demo-01",
@@ -81,6 +90,57 @@ const initialCloudflareAccounts: AddedConnection[] = [
     type: "cloudflare",
     label: "Cloudflare Demo 02",
     detail: "Demo API token · Zone + DNS edit",
+  },
+];
+
+const purchaseRows: PurchaseRow[] = [
+  {
+    date: "2026-07-03",
+    buyer: "Buyer Demo A",
+    account: "Namecheap Demo 01",
+    server: "Test Server Alpha",
+    domains: 8,
+    unitPrice: 2.18,
+  },
+  {
+    date: "2026-07-08",
+    buyer: "Buyer Demo B",
+    account: "Namecheap Demo 02",
+    server: "Test Server Beta",
+    domains: 6,
+    unitPrice: 3.12,
+  },
+  {
+    date: "2026-07-12",
+    buyer: "Buyer Demo A",
+    account: "Namecheap Demo 01",
+    server: "Test Server Alpha",
+    domains: 12,
+    unitPrice: 2.18,
+  },
+  {
+    date: "2026-07-19",
+    buyer: "Buyer Demo C",
+    account: "Namecheap Demo 03",
+    server: "Unassigned",
+    domains: 5,
+    unitPrice: 4.08,
+  },
+  {
+    date: "2026-07-24",
+    buyer: "Buyer Demo B",
+    account: "Namecheap Demo 02",
+    server: "Test Server Gamma",
+    domains: 7,
+    unitPrice: 3.12,
+  },
+  {
+    date: "2026-07-29",
+    buyer: "Unassigned",
+    account: "Namecheap Demo 01",
+    server: "Unassigned",
+    domains: 4,
+    unitPrice: 2.18,
   },
 ];
 
@@ -251,6 +311,11 @@ export default function Home() {
   const [records, setRecords] = useState(initialRecords);
   const [setupOpen, setSetupOpen] = useState(false);
   const [accountsOpen, setAccountsOpen] = useState(false);
+  const [purchasesOpen, setPurchasesOpen] = useState(false);
+  const [balanceOpen, setBalanceOpen] = useState(false);
+  const [purchaseTab, setPurchaseTab] = useState("overview");
+  const [purchaseFrom, setPurchaseFrom] = useState("2026-07-01");
+  const [purchaseTo, setPurchaseTo] = useState("2026-07-31");
   const [generatorType, setGeneratorType] = useState("vowel-consonant");
   const [generatorTld, setGeneratorTld] = useState("example");
   const [generatorCount, setGeneratorCount] = useState("10");
@@ -549,6 +614,37 @@ export default function Home() {
     setCfFilter("all");
   }
 
+  function exportPurchasesCsv() {
+    const header = [
+      "Date",
+      "Buyer",
+      "Namecheap account",
+      "Server",
+      "Domains",
+      "Unit price",
+      "Total",
+    ];
+    const lines = purchaseRows.map((row) => [
+      row.date,
+      row.buyer,
+      row.account,
+      row.server,
+      row.domains,
+      row.unitPrice.toFixed(2),
+      (row.domains * row.unitPrice).toFixed(2),
+    ]);
+    const csv = [header, ...lines]
+      .map((line) => line.map((cell) => `"${cell}"`).join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "domain-purchases-demo.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast("Test purchase report exported");
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -570,9 +666,32 @@ export default function Home() {
           <button className="button button-ghost" onClick={() => setAccountsOpen(true)}>
             Manage accounts
           </button>
+          <button
+            className="button button-ghost purchases-button"
+            onClick={() => setPurchasesOpen(true)}
+          >
+            ▥ Purchases
+          </button>
+          <button
+            className="button balance-button"
+            onClick={() => setBalanceOpen((current) => !current)}
+            aria-expanded={balanceOpen}
+          >
+            NC Balance
+          </button>
           <button className="avatar" aria-label="Open profile">
             DU
           </button>
+          {balanceOpen && (
+            <div className="balance-popover" role="status">
+              <span className="balance-pulse" />
+              <div>
+                <strong>Balance: $84.20</strong>
+                <small>Namecheap Demo 01 · Withdrawable: $0.00</small>
+              </div>
+              <button onClick={() => setBalanceOpen(false)}>Got it</button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -1263,6 +1382,179 @@ export default function Home() {
             >
               + Add new connection
             </button>
+          </section>
+        </div>
+      )}
+
+      {purchasesOpen && (
+        <div className="modal-backdrop" role="presentation">
+          <section
+            className="modal purchases-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="purchases-title"
+          >
+            <div className="modal-header purchases-header">
+              <div>
+                <span className="modal-icon purchases-icon">▥</span>
+                <div>
+                  <p className="eyebrow">Synthetic analytics</p>
+                  <h2 id="purchases-title">Domain purchases</h2>
+                  <small>Purchased domains by period, buyer, account and server</small>
+                </div>
+              </div>
+              <button
+                className="close-button"
+                onClick={() => setPurchasesOpen(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="purchase-controls">
+              <label>
+                <span>From</span>
+                <input
+                  type="date"
+                  value={purchaseFrom}
+                  onChange={(event) => setPurchaseFrom(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>To</span>
+                <input
+                  type="date"
+                  value={purchaseTo}
+                  onChange={(event) => setPurchaseTo(event.target.value)}
+                />
+              </label>
+              <button
+                className="button button-primary"
+                onClick={() => showToast(`Showing test data from ${purchaseFrom} to ${purchaseTo}`)}
+              >
+                Show
+              </button>
+              <div className="period-presets">
+                <button
+                  onClick={() => {
+                    setPurchaseFrom("2026-07-01");
+                    setPurchaseTo("2026-07-31");
+                  }}
+                >
+                  This month
+                </button>
+                <button
+                  onClick={() => {
+                    setPurchaseFrom("2026-06-01");
+                    setPurchaseTo("2026-06-30");
+                  }}
+                >
+                  Last month
+                </button>
+                <button onClick={() => setPurchaseFrom("2026-07-25")}>7 days</button>
+                <button onClick={() => setPurchaseFrom("2026-07-02")}>30 days</button>
+              </div>
+              <div className="purchase-sync-actions">
+                <button onClick={() => showToast("Test server links restored from Cloudflare") }>
+                  Restore servers from CF
+                </button>
+                <button onClick={() => showToast("Test purchase dates refreshed from Namecheap") }>
+                  Dates from Namecheap
+                </button>
+              </div>
+            </div>
+
+            <div className="purchase-stats">
+              <article>
+                <strong>42</strong>
+                <span>Domains in period</span>
+              </article>
+              <article>
+                <strong>$112.54</strong>
+                <span>Estimated cost</span>
+              </article>
+              <article>
+                <strong>33</strong>
+                <span>Assigned to server</span>
+              </article>
+              <article>
+                <strong>3</strong>
+                <span>Unique buyers</span>
+              </article>
+              <article>
+                <strong>9</strong>
+                <span>Without server</span>
+              </article>
+            </div>
+
+            <div className="purchase-tabs" role="tablist" aria-label="Purchase report view">
+              {[
+                ["overview", "Overview"],
+                ["buyers", "Buyers"],
+                ["servers", "Servers"],
+                ["accounts", "NC accounts"],
+                ["tld", "TLD"],
+                ["details", "Details"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  className={purchaseTab === value ? "active" : ""}
+                  onClick={() => setPurchaseTab(value)}
+                  role="tab"
+                  aria-selected={purchaseTab === value}
+                >
+                  {label}
+                </button>
+              ))}
+              <button className="export-csv" onClick={exportPurchasesCsv}>
+                ↓ Export CSV
+              </button>
+            </div>
+
+            <div className="purchase-table-wrap">
+              <table className="purchase-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Buyer</th>
+                    <th>Namecheap account</th>
+                    <th>Server</th>
+                    <th>Domains</th>
+                    <th>Price/domain</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {purchaseRows.map((row, index) => (
+                    <tr key={`${row.date}-${index}`}>
+                      <td>{row.date}</td>
+                      <td>{row.buyer}</td>
+                      <td>{row.account}</td>
+                      <td className={row.server === "Unassigned" ? "unassigned" : ""}>
+                        {row.server}
+                      </td>
+                      <td><strong>{row.domains}</strong></td>
+                      <td>${row.unitPrice.toFixed(2)}</td>
+                      <td className="purchase-total">
+                        ${(row.domains * row.unitPrice).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={4}>Total for selected period</td>
+                    <td>42</td>
+                    <td />
+                    <td>$112.54</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <div className="purchase-demo-note">
+              All figures, buyers, accounts and servers in this report are synthetic test data.
+            </div>
           </section>
         </div>
       )}
