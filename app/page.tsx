@@ -593,17 +593,19 @@ export default function Home() {
     ];
   }
 
-  function runBulkCheck() {
+  function runBulkCheck(source: "namecheap" | "database") {
     const queriedDomains = normalizeBulkDomains(bulkInput);
     if (!queriedDomains.length) {
       showToast("Add at least one test domain to check");
       return;
     }
 
+    const databaseOnly = source === "database";
     const databaseDomains = new Set(
       domains.map((domain) => normalizeDomainName(domain.name)),
     );
     const found = queriedDomains.filter((domain) => databaseDomains.has(domain)).length;
+    setBulkDbOnly(databaseOnly);
     setBulkDomainNames(queriedDomains);
     setBulkResult({
       queried: queriedDomains.length,
@@ -612,7 +614,7 @@ export default function Home() {
     });
     setSelected([]);
     showToast(
-      `${queriedDomains.length} test ${queriedDomains.length === 1 ? "domain" : "domains"} checked${bulkDbOnly ? " in the local database" : " in demo mode"}`,
+      `${queriedDomains.length} test ${queriedDomains.length === 1 ? "domain" : "domains"} checked${databaseOnly ? " in the local database" : " through the Namecheap demo"}`,
     );
   }
 
@@ -620,6 +622,7 @@ export default function Home() {
     setBulkInput("");
     setBulkDomainNames([]);
     setBulkResult(null);
+    setBulkDbOnly(false);
     setSelected([]);
   }
 
@@ -1324,12 +1327,15 @@ export default function Home() {
                 />
                 <div className="bulk-check-controls">
                   <div>
-                    <button className="check-namecheap" onClick={runBulkCheck}>
+                    <button
+                      className="check-namecheap"
+                      onClick={() => runBulkCheck("namecheap")}
+                    >
                       <span aria-hidden="true">▶</span> Check Namecheap
                     </button>
                     <button
                       className={`db-only-button ${bulkDbOnly ? "active" : ""}`}
-                      onClick={() => setBulkDbOnly((current) => !current)}
+                      onClick={() => runBulkCheck("database")}
                       aria-pressed={bulkDbOnly}
                     >
                       DB only
