@@ -2,6 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  createAndWaitForJob,
+  createProviderAccount,
+  deleteProviderAccount,
+  DomainJobType,
+  isDomainApiConfigured,
+  listProviderAccounts,
+  ProviderAccountApi,
+  testProviderAccount,
+} from "./lib/domain-api";
+
 type DomainStatus =
   | "active"
   | "purchased"
@@ -38,6 +49,18 @@ type AddedConnection = {
   type: "cloudflare" | "namecheap";
   label: string;
   detail: string;
+  status?: string;
+};
+
+type NamecheapAccount = {
+  id: string;
+  label: string;
+  detail: string;
+  used: number;
+  limit: number;
+  expiring: number;
+  tone: string;
+  status?: string;
 };
 
 type PurchaseRow = {
@@ -49,7 +72,7 @@ type PurchaseRow = {
   unitPrice: number;
 };
 
-const initialNamecheapAccounts = [
+const initialNamecheapAccounts: NamecheapAccount[] = [
   {
     id: "nc-demo-01",
     label: "Namecheap Demo 01",
@@ -391,6 +414,9 @@ export default function Home() {
   const [jobRunning, setJobRunning] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState("2 min ago");
+  const [apiStatus, setApiStatus] = useState<"demo" | "checking" | "connected" | "offline">(
+    "demo",
+  );
 
   useEffect(() => {
     const savedBulkInput = window.localStorage.getItem("domain-tool:bulk-input");
@@ -401,6 +427,13 @@ export default function Home() {
     if (savedBulkInput === null) return;
     const frame = window.requestAnimationFrame(() => setBulkInput(savedBulkInput));
     return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (!isDomainApiConfigured()) return;
+    void refreshAccountsFromApi();
+    // Initial connection discovery should run once; later refreshes are explicit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filteredDomains = useMemo(() => {
@@ -455,6 +488,74 @@ export default function Home() {
   function showToast(message: string) {
     setToast(message);
     window.setTimeout(() => setToast(null), 3000);
+  }
+
+  function backendErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : "The local API request failed";
+  }
+
+  function applyApiAccounts(accounts: ProviderAccountApi[]) {
+    const namecheap = accounts
+      .filter((account) => account.provider === "namecheap")
+      .map<NamecheapAccount>((account, index) => ({
+        id: account.id,
+        label: account.label,
+        detail: account.username || account.apiUser || "Namecheap API account",
+        used: domains.filter((domain) => domain.namecheap === account.label).length,
+        limit: 300,
+        expiring: 0,
+        tone: ["violet", "cyan", "amber"][index % 3],
+        status: account.status,
+      }));
+    const cloudflare = accounts
+      .filter((account) => account.provider === "cloudflare")
+      .map<AddedConnection>((account) => ({
+        id: account.id,
+        type: "cloudflare",
+        label: account.label,
+        detail: "API token · Zone + DNS edit",
+        status: account.status,
+      }));
+    setNamecheapAccounts(namecheap);
+    setCloudflareAccounts(cloudflare);
+    if (cloudflare[0]) setSetupAccount(cloudflare[0].label);
+  }
+
+  async function refreshAccountsFromApi(showResult = false) {
+    if (!isDomainApiConfigured()) {
+      if (showResult) showToast("Demo accounts refreshed");
+      return;
+    }
+    setApiStatus("checking");
+    try {
+      const accounts = await listProviderAccounts();
+      applyApiAccounts(accounts);
+      setApiStatus("connected");
+      if (showResult) showToast(`${accounts.length} backend accounts loaded`);
+    } catch (error) {
+      setApiStatus("offline");
+      if (showResult) showToast(`Backend unavailable: ${backendErrorMessage(error)}`);
+    }
+  }
+
+  async function runBackendJob(
+    type: DomainJobType,
+    selectedIds: number[],
+    options?: { targetIp?: string; removeFromDatabase?: boolean },
+  ) {
+    if (!isDomainApiConfigured()) return true;
+    const selectedDomains = domains
+      .filter((domain) => selectedIds.includes(domain.id))
+      .map((domain) => domain.name);
+    try {
+      setApiStatus("connected");
+      await createAndWaitForJob({ type, domains: selectedDomains, options });
+      return true;
+    } catch (error) {
+      setApiStatus("offline");
+      showToast(`Backend operation failed: ${backendErrorMessage(error)}`);
+      return false;
+    }
   }
 
   function toggleSelected(id: number) {
@@ -591,13 +692,39 @@ export default function Home() {
     }
   }
 
-  function addAccount() {
+  async function addAccount() {
     const label = accountLabel.trim();
     const username = accountUsername.trim();
     const secret = accountSecret.trim();
 
     if (!label || !secret || (accountType === "namecheap" && !username)) {
       showToast("Complete the required test fields first");
+      return;
+    }
+
+    if (isDomainApiConfigured()) {
+      try {
+        await createProviderAccount(
+          accountType === "cloudflare"
+            ? { provider: "cloudflare", label, apiToken: secret }
+            : {
+                provider: "namecheap",
+                label,
+                apiKey: secret,
+                apiUser: username,
+                username,
+                clientIp: accountClientIp,
+              },
+        );
+        await refreshAccountsFromApi();
+        setAccountLabel("");
+        setAccountUsername("");
+        setAccountSecret("");
+        showToast(`${label} securely saved in the local backend`);
+      } catch (error) {
+        setApiStatus("offline");
+        showToast(`Account was not saved: ${backendErrorMessage(error)}`);
+      }
       return;
     }
 
@@ -631,16 +758,46 @@ export default function Home() {
     showToast(`${label} added as a demo connection`);
   }
 
-  function deleteNamecheapAccount(id: string) {
+  async function deleteNamecheapAccount(id: string) {
+    if (isDomainApiConfigured()) {
+      try {
+        await deleteProviderAccount(id);
+      } catch (error) {
+        showToast(`Account was not deleted: ${backendErrorMessage(error)}`);
+        return;
+      }
+    }
     setNamecheapAccounts((current) => current.filter((account) => account.id !== id));
-    showToast("Namecheap demo account removed");
+    showToast(`Namecheap ${isDomainApiConfigured() ? "backend" : "demo"} account removed`);
   }
 
-  function deleteCloudflareAccount(id: string | number) {
+  async function deleteCloudflareAccount(id: string | number) {
+    if (isDomainApiConfigured()) {
+      try {
+        await deleteProviderAccount(String(id));
+      } catch (error) {
+        showToast(`Account was not deleted: ${backendErrorMessage(error)}`);
+        return;
+      }
+    }
     setCloudflareAccounts((current) =>
       current.filter((account) => account.id !== id),
     );
-    showToast("Cloudflare demo account removed");
+    showToast(`Cloudflare ${isDomainApiConfigured() ? "backend" : "demo"} account removed`);
+  }
+
+  async function testAccount(id: string | number, label: string) {
+    if (!isDomainApiConfigured()) {
+      showToast(`${label} demo test passed`);
+      return;
+    }
+    try {
+      const result = await testProviderAccount(String(id));
+      await refreshAccountsFromApi();
+      showToast(result.message);
+    } catch (error) {
+      showToast(`Connection test failed: ${backendErrorMessage(error)}`);
+    }
   }
 
   function refreshStatuses() {
@@ -710,12 +867,17 @@ export default function Home() {
     showToast(`${count} demo ${count === 1 ? "domain" : "domains"} removed from the database`);
   }
 
-  function removeSelectedFromCloudflare() {
+  async function removeSelectedFromCloudflare() {
     const count = selected.length;
     if (!count) return;
+    const selectedIds = [...selected];
+    setJobRunning(true);
+    const completed = await runBackendJob("cloudflare.remove", selectedIds);
+    setJobRunning(false);
+    if (!completed) return;
     setDomains((current) =>
       current.map((domain) =>
-        selected.includes(domain.id)
+        selectedIds.includes(domain.id)
           ? {
               ...domain,
               status: domain.namecheap === "Not assigned" ? "generated" : "imported",
@@ -733,15 +895,22 @@ export default function Home() {
     showToast(`${count} demo ${count === 1 ? "zone" : "zones"} removed from Cloudflare`);
   }
 
-  function resetSelectedDomains() {
+  async function resetSelectedDomains() {
     const count = selected.length;
     if (!count) return;
+    const selectedIds = [...selected];
+    setJobRunning(true);
+    const completed = await runBackendJob("domain.full_reset", selectedIds, {
+      removeFromDatabase: resetFromDatabase,
+    });
+    setJobRunning(false);
+    if (!completed) return;
     if (resetFromDatabase) {
-      setDomains((current) => current.filter((domain) => !selected.includes(domain.id)));
+      setDomains((current) => current.filter((domain) => !selectedIds.includes(domain.id)));
     } else {
       setDomains((current) =>
         current.map((domain) =>
-          selected.includes(domain.id)
+          selectedIds.includes(domain.id)
             ? {
                 ...domain,
                 status: "purchased",
@@ -775,12 +944,17 @@ export default function Home() {
     setSetupOpen(true);
   }
 
-  function updateNamecheapNameservers() {
+  async function updateNamecheapNameservers() {
     const count = selected.length;
     if (!count) return;
+    const selectedIds = [...selected];
+    setJobRunning(true);
+    const completed = await runBackendJob("namecheap.set_ns", selectedIds);
+    setJobRunning(false);
+    if (!completed) return;
     setDomains((current) =>
       current.map((domain) =>
-        selected.includes(domain.id)
+        selectedIds.includes(domain.id)
           ? {
               ...domain,
               status: "active",
@@ -798,11 +972,16 @@ export default function Home() {
     );
   }
 
-  function startCloudflareSetup() {
+  async function startCloudflareSetup() {
     if (!selected.length || !serverIp.trim()) return;
     const selectedIds = [...selected];
     const isIpChange = setupMode === "change_ip";
     const isNamecheapARecords = setupMode === "namecheap_a";
+    const originalDomains = new Map(
+      domains
+        .filter((domain) => selectedIds.includes(domain.id))
+        .map((domain) => [domain.id, domain]),
+    );
     setJobRunning(true);
     setSetupOpen(false);
     setDomains((current) =>
@@ -823,39 +1002,53 @@ export default function Home() {
           : domain,
       ),
     );
-    window.setTimeout(() => {
+    const operation: DomainJobType = isNamecheapARecords
+      ? "namecheap.set_hosts"
+      : isIpChange
+        ? "cloudflare.change_ip"
+        : "cloudflare.setup";
+    const completed = await runBackendJob(operation, selectedIds, { targetIp: serverIp });
+    if (!completed) {
       setDomains((current) =>
-        current.map((domain) =>
-          selectedIds.includes(domain.id)
-            ? {
-                ...domain,
-                status: isIpChange || isNamecheapARecords ? "active" : "waiting_ns",
-                cloudflare: domain.cloudflare,
-                ns1: isNamecheapARecords
-                  ? "dns1.registrar-servers.example"
-                  : isIpChange
-                    ? domain.ns1
-                    : "ns3.cloudflare-demo.example",
-                ns2: isNamecheapARecords
-                  ? "dns2.registrar-servers.example"
-                  : isIpChange
-                    ? domain.ns2
-                    : "ns4.cloudflare-demo.example",
-                lastSync: "just now",
-              }
-            : domain,
-        ),
+        current.map((domain) => originalDomains.get(domain.id) ?? domain),
       );
       setJobRunning(false);
-      showToast(
-        isNamecheapARecords
-          ? `Namecheap A records created for ${selectedIds.length} demo ${selectedIds.length === 1 ? "domain" : "domains"}`
-          : isIpChange
-          ? `Server IP changed for ${selectedIds.length} demo ${selectedIds.length === 1 ? "domain" : "domains"}`
-          : `${selectedIds.length} demo ${selectedIds.length === 1 ? "domain" : "domains"} sent to Cloudflare`,
-      );
-      setSelected([]);
-    }, 2200);
+      return;
+    }
+    await new Promise((resolve) =>
+      window.setTimeout(resolve, isDomainApiConfigured() ? 350 : 2200),
+    );
+    setDomains((current) =>
+      current.map((domain) =>
+        selectedIds.includes(domain.id)
+          ? {
+              ...domain,
+              status: isIpChange || isNamecheapARecords ? "active" : "waiting_ns",
+              cloudflare: domain.cloudflare,
+              ns1: isNamecheapARecords
+                ? "dns1.registrar-servers.example"
+                : isIpChange
+                  ? domain.ns1
+                  : "ns3.cloudflare-demo.example",
+              ns2: isNamecheapARecords
+                ? "dns2.registrar-servers.example"
+                : isIpChange
+                  ? domain.ns2
+                  : "ns4.cloudflare-demo.example",
+              lastSync: "just now",
+            }
+          : domain,
+      ),
+    );
+    setJobRunning(false);
+    showToast(
+      isNamecheapARecords
+        ? `Namecheap A records created for ${selectedIds.length} ${selectedIds.length === 1 ? "domain" : "domains"}`
+        : isIpChange
+          ? `Server IP changed for ${selectedIds.length} ${selectedIds.length === 1 ? "domain" : "domains"}`
+          : `${selectedIds.length} ${selectedIds.length === 1 ? "domain" : "domains"} sent to Cloudflare`,
+    );
+    setSelected([]);
   }
 
   function addDnsRecord() {
@@ -925,7 +1118,15 @@ export default function Home() {
           </div>
         </div>
         <div className="topbar-actions">
-          <span className="demo-badge">Synthetic demo data</span>
+          <span className="demo-badge">
+            {apiStatus === "connected"
+              ? "Local API connected"
+              : apiStatus === "checking"
+                ? "Checking local API"
+                : apiStatus === "offline"
+                  ? "Local API offline"
+                  : "Synthetic demo data"}
+          </span>
           <div className="sync-meta">
             <span className="live-dot" />
             Last sync: {lastSync}
@@ -1168,7 +1369,9 @@ export default function Home() {
               </label>
               <div className="credential-note">
                 <span>i</span>
-                Prototype mode: use test values only. Credentials are not sent anywhere.
+                {isDomainApiConfigured()
+                  ? "Credentials are sent only to the local backend and stored encrypted."
+                  : "Prototype mode: use test values only. Credentials are not sent anywhere."}
               </div>
               <button className="button button-orange tool-submit" onClick={addAccount}>
                 Add {accountType === "cloudflare" ? "Cloudflare" : "Namecheap"} account
@@ -1185,7 +1388,7 @@ export default function Home() {
               </div>
               <button
                 className="panel-refresh"
-                onClick={() => showToast("Demo account list refreshed")}
+                onClick={() => void refreshAccountsFromApi(true)}
               >
                 ↻ Refresh
               </button>
@@ -1198,10 +1401,10 @@ export default function Home() {
                     <strong>{account.label}</strong>
                     <small>{account.detail} · {account.used} domains</small>
                   </div>
-                  <span className="connection-status">Connected</span>
+                  <span className="connection-status">{account.status ?? "demo"}</span>
                   <div className="account-list-actions">
                     <button
-                      onClick={() => showToast(`${account.label} test passed`)}
+                      onClick={() => void testAccount(account.id, account.label)}
                     >
                       Test
                     </button>
@@ -1221,10 +1424,10 @@ export default function Home() {
                     <strong>{account.label}</strong>
                     <small>{account.detail}</small>
                   </div>
-                  <span className="connection-status">Connected</span>
+                  <span className="connection-status">{account.status ?? "demo"}</span>
                   <div className="account-list-actions">
                     <button
-                      onClick={() => showToast(`${account.label} test passed`)}
+                      onClick={() => void testAccount(account.id, account.label)}
                     >
                       Test
                     </button>
@@ -1845,8 +2048,11 @@ export default function Home() {
                     value={setupAccount}
                     onChange={(event) => setSetupAccount(event.target.value)}
                   >
-                    <option>Cloudflare Demo 01</option>
-                    <option>Cloudflare Demo 02</option>
+                    {cloudflareAccounts.map((account) => (
+                      <option key={account.id} value={account.label}>
+                        {account.label}
+                      </option>
+                    ))}
                   </select>
                 </label>
               ) : setupMode === "change_ip" ? (
@@ -2004,8 +2210,8 @@ export default function Home() {
                     <strong>{account.label}</strong>
                     <small>{account.detail}</small>
                   </div>
-                  <span className="connection-status">Connected</span>
-                  <button onClick={() => showToast(`${account.label} connection is healthy`)}>
+                  <span className="connection-status">{account.status ?? "demo"}</span>
+                  <button onClick={() => void testAccount(account.id, account.label)}>
                     Test
                   </button>
                 </article>
@@ -2017,8 +2223,8 @@ export default function Home() {
                     <strong>{connection.label}</strong>
                     <small>{connection.detail}</small>
                   </div>
-                  <span className="connection-status">Connected</span>
-                  <button onClick={() => showToast(`${connection.label} test passed`)}>
+                  <span className="connection-status">{connection.status ?? "demo"}</span>
+                  <button onClick={() => void testAccount(connection.id, connection.label)}>
                     Test
                   </button>
                 </article>

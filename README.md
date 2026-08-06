@@ -1,98 +1,184 @@
-# vinext-starter
+# Domain Tool
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+Domain Tool — це вебпанель для централізованого керування великою кількістю
+доменів у Namecheap і Cloudflare. Проєкт об'єднує frontend-інтерфейс, NestJS API,
+зберігання provider-акаунтів і чергу масових операцій в одному репозиторії.
 
-## Prerequisites
+Основна мета — замінити ручне перемикання між кабінетами реєстратора, Cloudflare
+і таблицями єдиним робочим простором, де можна знайти домен, перевірити його стан
+та запустити однакову операцію одразу для групи доменів.
 
-- Node.js `>=22.13.0`
+> Поточна версія є безпечною development-основою. У `APP_MODE=mock` вона працює
+> із синтетичними `.example` доменами та не змінює реальні дані у провайдерів.
 
-## Quick Start
+Докладний стан реалізації: [PROJECT_STATUS.md](./PROJECT_STATUS.md). Перед
+підключенням справжніх акаунтів обов'язково прочитайте
+[production checklist](./docs/production-checklist.md).
+
+## Навіщо потрібен цей проєкт
+
+- зберігати список доменів і стан їх підключення в одному місці;
+- контролювати домени в декількох Namecheap і Cloudflare акаунтах;
+- масово додавати або видаляти Cloudflare zones;
+- змінювати IP, nameservers і DNS-записи для вибраних доменів;
+- бачити прогрес та помилки кожної масової операції;
+- зменшити кількість ручних дій і ризик помилки під час повторюваних змін;
+- надалі інтегрувати домени з окремою системою керування серверами.
+
+## Що вже реалізовано
+
+### Frontend
+
+- односторінковий dashboard із 200 синтетичними доменами;
+- пошук, фільтри, вибір доменів і пагінація;
+- drawer з інформацією про домен та DNS-записи;
+- панель Cloudflare і Namecheap акаунтів;
+- запуск bulk-операцій через локальний API;
+- безпечний synthetic fallback, якщо API недоступний.
+
+### Backend
+
+- NestJS REST API з режимами `mock`, `sandbox` і `live`;
+- зашифроване зберігання provider credentials через AES-256-GCM;
+- API для створення, перевірки, перегляду та видалення акаунтів;
+- API масових jobs із результатом для кожного домену;
+- PostgreSQL-схема та Drizzle migration;
+- опціональна BullMQ/Redis черга з retry, backoff і concurrency;
+- memory mode для локального запуску без Docker;
+- health endpoint зі станом API, бази даних і черги.
+
+Підтримувані типи bulk jobs:
+
+- `cloudflare.setup`;
+- `cloudflare.remove`;
+- `cloudflare.change_ip`;
+- `namecheap.set_ns`;
+- `namecheap.set_hosts`;
+- `domain.full_reset`.
+
+## Важливі обмеження
+
+- у `mock` mode усі provider mutations симулюються;
+- у `sandbox/live` реалізована лише перевірка credentials, але не реальні зміни доменів;
+- імпорт і синхронізація реальних доменів ще потребують реалізації;
+- login, RBAC, CSRF protection та production audit flow ще не готові;
+- `APP_MODE=live` не можна використовувати до завершення production checklist.
+
+## Технології
+
+- Frontend: React 19, Next.js 16, TypeScript, Tailwind CSS, vinext/Vite;
+- Backend: NestJS 11, TypeScript;
+- Data: PostgreSQL 16, Drizzle ORM;
+- Jobs: Redis 7.4, BullMQ;
+- Security: AES-256-GCM, Helmet, DTO validation;
+- Local infrastructure: Docker Compose.
+
+## Структура репозиторію
+
+```text
+domain-tool/
+├── app/                       # frontend та API client
+├── backend/                   # NestJS API
+│   ├── drizzle/               # SQL migrations
+│   ├── src/                   # backend modules
+│   └── test/                  # backend tests
+├── docs/                      # production checklist
+├── tests/                     # frontend/render tests
+├── docker-compose.yml         # PostgreSQL + Redis
+├── .env.example               # безпечний frontend приклад
+└── PROJECT_STATUS.md          # технічний handoff і поточний стан
+```
+
+## Вимоги
+
+- Node.js `22.13` або новіший;
+- npm;
+- Docker Desktop — лише для persistent PostgreSQL і Redis.
+
+## Швидкий локальний запуск
+
+Відкрийте два термінали в корені проєкту.
+
+API:
+
+```bash
+npm --prefix backend install
+npm run dev:api
+```
+
+Frontend:
 
 ```bash
 npm install
 npm run dev
-npm run build
 ```
 
-This starter does not use `wrangler.jsonc`.
+Відкрийте [http://localhost:3000](http://localhost:3000). Health endpoint API:
+[http://localhost:4000/api/health](http://localhost:4000/api/health).
 
-## Included Shape
+За замовчуванням база і Redis вимкнені. Дані зберігаються в пам'яті процесу та
+зникають після перезапуску API.
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
+## PostgreSQL і Redis
 
-## Workspace Auth Headers
+Запустіть локальну інфраструктуру:
 
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```bash
+docker compose up -d postgres redis
+cp backend/.env.example backend/.env
+openssl rand -hex 32
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+Запишіть згенерований ключ у `ENCRYPTION_KEY` файлу `backend/.env` і змініть:
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+```dotenv
+DATABASE_ENABLED=true
+REDIS_ENABLED=true
+```
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+Застосуйте міграцію та запустіть API:
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+```bash
+npm --prefix backend run db:migrate
+npm run dev:api
+```
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+Файл `backend/.env` не можна додавати в Git. У репозиторії має залишатися лише
+`backend/.env.example` без реальних ключів.
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+## Основні API endpoints
 
-## Useful Commands
+| Method | Path | Призначення |
+|---|---|---|
+| `GET` | `/api/health` | Стан API, PostgreSQL і Redis |
+| `GET` | `/api/accounts` | Метадані акаунтів без секретів |
+| `POST` | `/api/accounts` | Додати зашифрований provider account |
+| `POST` | `/api/accounts/:id/test` | Перевірити credentials |
+| `DELETE` | `/api/accounts/:id` | Видалити provider account |
+| `GET` | `/api/jobs` | Останні масові операції |
+| `POST` | `/api/jobs` | Створити job максимум для 500 доменів |
+| `GET` | `/api/jobs/:id` | Статус job та per-domain результати |
 
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+## Перевірка проєкту
 
-## Learn More
+```bash
+npm run lint
+npm test
+npm --prefix backend run typecheck
+npm run test:api
+npm run build:api
+```
 
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+## Безпека
+
+- не комітьте `.env`, API tokens, passwords або реальні домени/IP;
+- не використовуйте Cloudflare Global API Key — потрібен scoped API Token;
+- вводьте credentials тільки через локальний або production UI;
+- для демонстрацій використовуйте `.example` та документаційні IP-діапазони;
+- перед staging реалізуйте idempotency, rate limiting, authentication та audit log;
+- перед production перевірте backup/restore, HTTPS і least-privilege permissions.
+
+## Поточний статус
+
+Проєкт придатний для локальної розробки, UI-демонстрації та тестування API в
+`mock` mode. Він ще не готовий до керування реальними production-доменами.
