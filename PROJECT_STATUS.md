@@ -1,98 +1,98 @@
-# Domain Tool — стан проєкту та продовження роботи
+# Domain Tool — project status and continued work
 
-> Оновлено: 31 липня 2026 року.
-> Новій сесії Codex: спочатку прочитати цей файл, потім `README.md` і
+> Updated: July 31, 2026.
+> New Codex session: first read this file, then `README.md` and
 > `docs/production-checklist.md`.
 
-## 1. Мета проєкту
+## 1. The purpose of the project
 
-Domain Tool має максимально спростити масову роботу з доменами:
+Domain Tool should simplify bulk work with domains as much as possible:
 
-1. імпортувати куплені домени з Namecheap;
-2. додавати домени до Cloudflare;
-3. створювати DNS-записи `@` і `*` на IP сервера баєра;
-4. змінювати IP, NS та DNS-записи для декількох доменів;
-5. бачити статус, термін дії та помилки кожного домену;
-6. контролювати кількість доменів у кожному Namecheap-акаунті;
-7. пізніше інтегруватися з окремим сервісом керування серверами та Hestia.
+1. import purchased domains from Namecheap;
+2. add domains to Cloudflare;
+3. create DNS records `@` and `*` on the IP of the buyer's server;
+4. change IP, NS and DNS records for several domains;
+5. see the status, expiration date and errors of each domain;
+6. control the number of domains in each Namecheap account;
+7. later integrate with a separate server management service and Hestia.
 
-Інтерфейс залишається односторінковим і англомовним. Спілкування та внутрішня
-документація можуть бути українською. Згодом можна додати перемикання мов.
+The interface remains single-page and English-language. All repository documentation,
+code comments, tests, and user-facing text must also remain in English.
 
-## 2. Обов'язкові правила безпеки
+## 2. Mandatory safety rules
 
-- Не копіювати у код реальні назви акаунтів, домени, IP, email або ключі зі скріншотів.
-- Для демо використовувати тільки `.example` та документаційні IP-діапазони:
+- Do not copy real account names, domains, IP, email or keys from screenshots into the code.
+- For demo use only `.example` and documentation IP ranges:
   `192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`.
-- Не просити користувача надсилати API keys або tokens у чат.
-- Реальні секрети вводяться тільки через локальну/production-панель.
-- Не використовувати Cloudflare Global API Key. Для production потрібен scoped API Token.
-- Не перемикати `APP_MODE=live`, доки не завершені sandbox handlers, auth/RBAC,
-  idempotency, audit log і staging-перевірка.
+- Do not ask the user to send API keys or tokens to the chat.
+- Real secrets are entered only through the local/production panel.
+- Do not use Cloudflare Global API Key. Production requires a scoped API Token.
+- Do not toggle `APP_MODE=live` until sandbox handlers, auth/RBAC,
+  idempotency, audit log and staging check.
 
-Пошук по репозиторію підтвердив, що реальні дані зі скріншотів у код не потрапили.
+A search of the repository confirmed that the actual data from the screenshots did not make it into the code.
 
-## 3. Поточний стан Git
+## 3. The current state of Git
 
-- Репозиторій: `/Users/ProKesha/projectsFamily/projects-arbitration/domain-tool`
-- Гілка: `main`
-- Базовий commit до backend-робіт: `cdc845d`
-- Поточна backend/frontend робота ще не закомічена.
-- Не перезаписувати або видаляти наявні зміни: вони є поточною реалізацією проєкту.
+- Repository: `/Users/ProKesha/projectsFamily/projects-arbitration/domain-tool`
+- Branch: `main`
+- Base commit to backend works: `cdc845d`
+- The current backend/frontend work has not yet been completed.
+- Do not overwrite or delete existing changes: they are the current implementation of the project.
 
-Остання раніше опублікована frontend-версія:
+The latest previously published frontend version:
 
 - URL: `https://domain-tool-control.lort20178.chatgpt.site`
 - Sites version: 13
-- Вона не містить нового локального NestJS backend.
-- Поточні зміни не потрібно публікувати, доки локальний flow не завершений.
+- It does not contain the new local NestJS backend.
+- Current changes do not need to be published until the local flow is complete.
 
-## 4. Що вже реалізовано у frontend
+## 4. What is already implemented in the frontend
 
-Основний файл: `app/page.tsx`.
+Main file: `app/page.tsx`.
 
-- Односторінковий темний dashboard.
-- Усі UI-тексти англійською.
-- 200 синтетичних тестових доменів.
-- Пагінація по 50 доменів на сторінку.
-- Внутрішній вертикальний та горизонтальний scroll таблиці.
-- NC Bulk Check для одного або декількох доменів.
-- Bulk-пошук працює по всіх 200 доменах, незалежно від поточної сторінки.
-- Поле bulk-пошуку порожнє за замовчуванням і зберігається при reload.
+- One-page dark dashboard.
+- All UI texts are in English.
+- 200 synthetic test domains.
+- Pagination for 50 domains per page.
+- Internal vertical and horizontal scroll of the table.
+- NC Bulk Check for one or more domains.
+- Bulk search works on all 200 domains, regardless of the current page.
+- The bulk search field is empty by default and is saved during reload.
 - Generate domains.
-- Add account: Cloudflare або Namecheap.
-- Accounts panel: перегляд, test, delete, refresh.
-- Фільтри, selection panel і кольорові bulk-кнопки з англомовними tooltips.
-- Domain drawer з Overview та DNS Records.
+- Add account: Cloudflare or Namecheap.
+- Accounts panel: view, test, delete, refresh.
+- Filters, selection panel and colored bulk buttons with English tooltips.
+- Domain drawer with Overview and DNS Records.
 - Purchases demo modal.
-- Локальний API-клієнт: `app/lib/domain-api.ts`.
-- На `localhost` frontend автоматично використовує `http://localhost:4000/api`.
-- Badge у header показує `Local API connected`, `Checking local API`,
-  `Local API offline` або `Synthetic demo data`.
-- Add/Test/Delete account викликають backend, коли він доступний.
-- Bulk Cloudflare/Namecheap дії створюють backend job і очікують результат.
-- Без налаштованого API опублікований frontend залишається в безпечному demo fallback.
+- Local API Client: `app/lib/domain-api.ts`.
+- On `localhost` frontend automatically uses `http://localhost:4000/api`.
+- Badge in the header shows `Local API connected`, `Checking local API`,
+  `Local API offline` or `Synthetic demo data`.
+- Add/Test/Delete account are called by the backend when it is available.
+- Bulk Cloudflare/Namecheap actions create a backend job and expect a result.
+- Without a configured API, the published frontend remains in a secure demo fallback.
 
-## 5. Що вже реалізовано у backend
+## 5. What is already implemented in the backend
 
-Backend знаходиться в `backend/` і побудований на NestJS + TypeScript.
+The backend is in `backend/` and is built on NestJS + TypeScript.
 
-### Конфігурація
+### Configuration
 
-- `APP_MODE`: `mock`, `sandbox` або `live`.
-- Значення за замовчуванням: `mock`.
-- `DATABASE_ENABLED=false` і `REDIS_ENABLED=false` за замовчуванням.
-- У mock-режимі backend запускається без Docker, PostgreSQL та Redis.
-- `backend/.env.example` містить тільки синтетичні development-значення.
-- Development encryption key заборонений валідатором у `live` mode.
+- `APP_MODE`: `mock`, `sandbox` or `live`.
+- Default value: `mock`.
+- `DATABASE_ENABLED=false` and `REDIS_ENABLED=false` by default.
+- In mock mode, the backend runs without Docker, PostgreSQL, and Redis.
+- `backend/.env.example` contains only synthetic development values.
+- Development encryption key is prohibited by the validator in `live` mode.
 
-### Безпека секретів
+### Security of secrets
 
 - `backend/src/security/secrets.service.ts`.
 - AES-256-GCM.
-- Для кожного шифрування генерується новий nonce.
-- API ніколи не повертає `encryptedSecret`.
-- Є тести на decrypt та відмову при пошкодженому ciphertext.
+- A new nonce is generated for each encryption.
+- The API never returns `encryptedSecret`.
+- There are tests for decrypt and failure with damaged ciphertext.
 
 ### Provider accounts
 
@@ -103,27 +103,27 @@ Endpoints:
 - `POST /api/accounts/:id/test`
 - `DELETE /api/accounts/:id`
 
-Підтримуються Cloudflare і Namecheap. При ввімкненій БД акаунти зберігаються в
-PostgreSQL, інакше — у пам'яті процесу. Після restart memory-дані зникають.
+Cloudflare and Namecheap are supported. When the database is enabled, accounts are stored in
+PostgreSQL, otherwise — in process memory. After a restart, the memory data disappears.
 
 ### Provider clients
 
 - `backend/src/providers/cloudflare.client.ts`
 - `backend/src/providers/namecheap.client.ts`
 
-У `mock` mode credential checks симулюються. У `sandbox/live` уже є реальні
-HTTP-запити тільки для перевірки credentials:
+In `mock` mode, credential checks are simulated. `sandbox/live` already has real ones
+HTTP requests only to check credentials:
 
 - Cloudflare: token verification;
-- Namecheap: account balance API call та XML parsing.
+- Namecheap: account balance API call and XML parsing.
 
-Реальні domain mutation methods ще не реалізовані.
+Real domain mutation methods have not yet been implemented.
 
 ### PostgreSQL
 
-Схема: `backend/src/database/schema.ts`.
+Scheme: `backend/src/database/schema.ts`.
 
-Таблиці:
+Tables:
 
 - `provider_accounts`
 - `domains`
@@ -132,15 +132,15 @@ HTTP-запити тільки для перевірки credentials:
 - `job_items`
 - `audit_logs`
 
-Міграція: `backend/drizzle/0000_greedy_proteus.sql`.
+Migration: `backend/drizzle/0000_greedy_proteus.sql`.
 
-`docker-compose.yml` готує:
+`docker-compose.yml` prepares:
 
-- PostgreSQL 16 на локальному порту `5433`;
-- Redis 7.4 на локальному порту `6380`.
+- PostgreSQL 16 on local port `5433`;
+- Redis 7.4 on local port `6380`.
 
-Docker CLI зараз не встановлений на цьому Mac. Compose та SQL підготовлені, але
-контейнери ще не запускалися.
+Docker CLI is not currently installed on this Mac. Compose and SQL are prepared but
+containers have not started yet.
 
 ### Bulk jobs
 
@@ -150,7 +150,7 @@ Endpoints:
 - `POST /api/jobs`
 - `GET /api/jobs/:id`
 
-Підтримувані типи:
+Supported types:
 
 - `cloudflare.setup`
 - `cloudflare.remove`
@@ -159,20 +159,20 @@ Endpoints:
 - `namecheap.set_hosts`
 - `domain.full_reset`
 
-До 500 доменів в одному job. Якщо Redis вимкнений, використовується memory mock
-processor. Якщо Redis увімкнений, BullMQ має retry, exponential backoff і concurrency 3.
+Up to 500 domains in one job. If Redis is disabled, memory mock is used
+processor. If Redis is enabled, BullMQ has retry, exponential backoff and concurrency 3.
 
-У `mock` mode job переходить `queued → running → completed`, а кожен item отримує
-`simulated: true`. У `sandbox/live` реальні handlers поки навмисно не запускаються.
+In `mock` mode job goes to `queued → running → completed`, and each item receives
+`simulated: true`. In `sandbox/live`, real handlers are not intentionally started yet.
 
 ### Health
 
 - `GET /api/health`
-- Показує mode, database status і queue status.
+- Shows mode, database status and queue status.
 
-## 6. Як запустити зараз
+## 6. How to launch now
 
-Відкрити два термінали.
+Open two terminals.
 
 Terminal 1:
 
@@ -188,13 +188,13 @@ cd /Users/ProKesha/projectsFamily/projects-arbitration/domain-tool
 npm run dev
 ```
 
-Відкрити `http://localhost:3000`.
+Open `http://localhost:3000`.
 
 Backend health: `http://localhost:4000/api/health`.
 
-## 7. Що перевірено
+## 7. What is verified
 
-Успішно виконано:
+Successfully completed:
 
 ```bash
 npm run lint
@@ -204,91 +204,91 @@ npm --prefix backend test
 npm --prefix backend run build
 ```
 
-Результати:
+Results:
 
-- frontend: build успішний, lint успішний, 2/2 tests passed;
-- backend: typecheck успішний, production build успішний, 6/6 tests passed;
-- production backend build перевірено двічі поспіль;
-- HTTP flow перевірено вручну через локальний API;
-- створено синтетичні Cloudflare і Namecheap акаунти;
-- credential tests повернули mock success;
-- bulk Cloudflare setup для двох `.example` доменів завершився успішно;
-- API response не містив encrypted secret.
+- frontend: build successful, lint successful, 2/2 tests passed;
+- backend: typecheck successful, production build successful, 6/6 tests passed;
+- production backend build checked twice in a row;
+- HTTP flow is checked manually via local API;
+- created synthetic Cloudflare and Namecheap accounts;
+- credential tests returned mock success;
+- bulk Cloudflare setup for two `.example` domains completed successfully;
+- The API response did not contain an encrypted secret.
 
-Під час перевірки був знайдений і виправлений Nest build-баг: `deleteOutDir` разом
-з TypeScript incremental залишав неповний `dist`. У `backend/tsconfig.build.json`
-для production build встановлено `incremental: false`. Не повертати його назад без
-окремої перевірки повторного build/start.
+Nest build bug: `deleteOutDir` was found and fixed during the check
+with TypeScript incremental left incomplete `dist`. In `backend/tsconfig.build.json`
+the production build is set to `incremental: false`. Do not turn it back without
+separate check of repeated build/start.
 
-## 8. Точний наступний етап
+## 8. The exact next stage
 
-Користувач створить тестові Namecheap/Cloudflare акаунти пізніше. Зараз не потрібно
-просити його робити це або вводити credentials.
+User will create test Namecheap/Cloudflare accounts later. No need now
+ask him to do so or enter credentials.
 
-Наступна реалізація повинна йти в такому порядку:
+The next implementation should go in this order:
 
-1. Реалізувати Cloudflare sandbox/test operations:
+1. Implement Cloudflare sandbox/test operations:
    - resolve account;
    - find/create zone idempotently;
    - set Flexible SSL;
-   - upsert `@` і `*` A records;
+   - upsert `@` and `*` A records;
    - replace IP without duplicate records;
    - delete zone safely.
-2. Реалізувати Namecheap sandbox operations:
-   - paginated domain import (`PageSize` не більше 100);
+2. Implement Namecheap sandbox operations:
+   - paginated domain import (`PageSize` no more than 100);
    - domain details/expiration sync;
    - custom NS update;
-   - getHosts перед setHosts;
-   - preserve усі host records, які не потрібно видаляти;
-   - create/replace `@` і `*` A records.
-3. Додати Domains module та API:
+   - getHosts before setHosts;
+   - preserve all host records that do not need to be deleted;
+   - create/replace `@` and `*` A records.
+3. Add Domains module and API:
    - pagination/filter/search;
    - import/sync;
-   - domain details і DNS records.
-4. Замінити mock job processor на idempotent operation executor.
-5. Обробляти partial failure окремо для кожного домену.
-6. Додати provider rate limiting, retry classification і dead-letter handling.
-7. Встановити Docker Desktop, запустити PostgreSQL/Redis та перевірити migration.
-8. Додати login, RBAC, CSRF protection та реальний audit log.
-9. Провести staging test на 1–2 disposable test domains.
-10. Тільки після цього готувати production VPS і production credentials.
+   - domain details and DNS records.
+4. Replace mock job processor with idempotent operation executor.
+5. Handle partial failure separately for each domain.
+6. Add provider rate limiting, retry classification and dead-letter handling.
+7. Install Docker Desktop, run PostgreSQL/Redis and check the migration.
+8. Add login, RBAC, CSRF protection and a real audit log.
+9. Conduct a staging test on 1–2 disposable test domains.
+10. Only after that prepare production VPS and production credentials.
 
-## 9. Важливі production-умови
+## 9. Important production conditions
 
-- Namecheap API потребує whitelisted public IPv4.
-- Для production потрібен VPS зі стабільним IPv4; домашній/динамічний IP ненадійний.
-- Cloudflare використовувати тільки зі scoped API Token та мінімальними permissions.
-- Namecheap `setHosts` замінює host records, яких немає в запиті: спочатку обов'язково
-  читати наявні записи та явно зберігати ті, що не мають бути видалені.
-- Bulk handlers повинні бути idempotent через автоматичні retries BullMQ.
-- Destructive actions мають мати confirmation і dry-run preview.
-- Production secrets мають зберігатися в secrets manager, а не в `.env` на диску.
+- Namecheap API requires whitelisted public IPv4.
+- For production, you need a VPS with stable IPv4; home/dynamic IP is unreliable.
+- Use Cloudflare only with a scoped API Token and minimal permissions.
+- Namecheap `setHosts` replaces host records that are not in the request: first mandatory
+  read existing records and explicitly store those that should not be deleted.
+- Bulk handlers must be idempotent due to BullMQ's automatic retries.
+- Destructive actions must have confirmation and dry-run preview.
+- Production secrets should be stored in the secrets manager, not in `.env` on disk.
 
-## 10. Ключові файли
+## 10. Key files
 
-- `README.md` — запуск і короткий опис.
-- `PROJECT_STATUS.md` — цей handoff-файл.
+- `README.md` - launch and brief description.
+- `PROJECT_STATUS.md` is this handoff file.
 - `docs/production-checklist.md` — production gates.
-- `app/page.tsx` — основний UI.
+- `app/page.tsx` is the main UI.
 - `app/lib/domain-api.ts` — frontend API client.
 - `backend/src/app.module.ts` — backend modules.
 - `backend/src/database/schema.ts` — PostgreSQL schema.
 - `backend/src/accounts/accounts.service.ts` — encrypted provider accounts.
-- `backend/src/jobs/jobs.service.ts` — queue та mock bulk processor.
+- `backend/src/jobs/jobs.service.ts` — queue and mock bulk processor.
 - `backend/src/providers/` — Namecheap/Cloudflare clients.
 - `backend/.env.example` — backend environment template.
-- `docker-compose.yml` — локальні PostgreSQL і Redis.
+- `docker-compose.yml` - Local PostgreSQL and Redis.
 
-## 11. Definition of done для першого реального sandbox flow
+## 11. Definition of done for the first real sandbox flow
 
-Flow вважається готовим, коли один disposable домен можна:
+Flow is considered ready when one disposable domain can:
 
-1. імпортувати з Namecheap Sandbox;
-2. idempotently додати до Cloudflare;
-3. створити `@` і `*` A records на documentation/test server IP;
-4. записати Cloudflare NS у Namecheap;
-5. повторно запустити той самий job без дублікатів і пошкодження DNS;
-6. побачити всі кроки та помилки в `job_items` і `audit_logs`;
-7. виконати full reset і повернути домен у початковий стан.
+1. import from Namecheap Sandbox;
+2. idempotently add to Cloudflare;
+3. create `@` and `*` A records on the documentation/test server IP;
+4. register Cloudflare NS with Namecheap;
+5. re-run the same job without duplicates and DNS damage;
+6. see all steps and errors in `job_items` and `audit_logs`;
+7. perform a full reset and return the domain to its initial state.
 
-До проходження цього flow реальні production-домени не підключати.
+Do not connect real production domains before completing this flow.

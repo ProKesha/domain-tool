@@ -1,53 +1,53 @@
 # Domain Tool
 
-Domain Tool — це вебпанель для централізованого керування великою кількістю
-доменів у Namecheap і Cloudflare. Проєкт об'єднує frontend-інтерфейс, NestJS API,
-зберігання provider-акаунтів і чергу масових операцій в одному репозиторії.
+Domain Tool is a web application for centralized management of large numbers of
+domains in Namecheap and Cloudflare. The project combines a frontend dashboard,
+a NestJS API, provider account storage, and a bulk-operation queue in one repository.
 
-Основна мета — замінити ручне перемикання між кабінетами реєстратора, Cloudflare
-і таблицями єдиним робочим простором, де можна знайти домен, перевірити його стан
-та запустити однакову операцію одразу для групи доменів.
+The main goal is to replace manual switching between registrar accounts, Cloudflare,
+and spreadsheets with one workspace where operators can find a domain, check its
+status, and run the same operation for a group of domains.
 
-> Поточна версія є безпечною development-основою. У `APP_MODE=mock` вона працює
-> із синтетичними `.example` доменами та не змінює реальні дані у провайдерів.
+> The current version is a secure development base. In `APP_MODE=mock` it works
+> with synthetic `.example` domains and does not change real data from providers.
 
-Докладний стан реалізації: [PROJECT_STATUS.md](./PROJECT_STATUS.md). Перед
-підключенням справжніх акаунтів обов'язково прочитайте
+Detailed implementation status: [PROJECT_STATUS.md](./PROJECT_STATUS.md). Before
+connecting real accounts, be sure to read
 [production checklist](./docs/production-checklist.md).
 
-## Навіщо потрібен цей проєкт
+## Why is this project needed?
 
-- зберігати список доменів і стан їх підключення в одному місці;
-- контролювати домени в декількох Namecheap і Cloudflare акаунтах;
-- масово додавати або видаляти Cloudflare zones;
-- змінювати IP, nameservers і DNS-записи для вибраних доменів;
-- бачити прогрес та помилки кожної масової операції;
-- зменшити кількість ручних дій і ризик помилки під час повторюваних змін;
-- надалі інтегрувати домени з окремою системою керування серверами.
+- keep a list of domains and their connection status in one place;
+- control domains in several Namecheap and Cloudflare accounts;
+- bulk add or remove Cloudflare zones;
+- change IP, nameservers and DNS records for selected domains;
+- see the progress and errors of each mass operation;
+- reduce the number of manual actions and the risk of error during repeated changes;
+- further integrate domains with a separate server management system.
 
-## Що вже реалізовано
+## What has already been implemented
 
 ### Frontend
 
-- односторінковий dashboard із 200 синтетичними доменами;
-- пошук, фільтри, вибір доменів і пагінація;
-- drawer з інформацією про домен та DNS-записи;
-- панель Cloudflare і Namecheap акаунтів;
-- запуск bulk-операцій через локальний API;
-- безпечний synthetic fallback, якщо API недоступний.
+- one-page dashboard with 200 synthetic domains;
+- search, filters, domain selection and pagination;
+- drawer with information about the domain and DNS records;
+- panel of Cloudflare and Namecheap accounts;
+- launching bulk operations through the local API;
+- safe synthetic fallback if the API is not available.
 
 ### Backend
 
-- NestJS REST API з режимами `mock`, `sandbox` і `live`;
-- зашифроване зберігання provider credentials через AES-256-GCM;
-- API для створення, перевірки, перегляду та видалення акаунтів;
-- API масових jobs із результатом для кожного домену;
-- PostgreSQL-схема та Drizzle migration;
-- опціональна BullMQ/Redis черга з retry, backoff і concurrency;
-- memory mode для локального запуску без Docker;
-- health endpoint зі станом API, бази даних і черги.
+- NestJS REST API with modes `mock`, `sandbox` and `live`;
+- encrypted storage of provider credentials via AES-256-GCM;
+- API for creating, verifying, viewing and deleting accounts;
+- bulk-job API with a result for each domain;
+- PostgreSQL schema and Drizzle migration;
+- optional BullMQ/Redis queue with retry, backoff and concurrency;
+- memory mode for local startup without Docker;
+- health endpoint with API, database and queue status.
 
-Підтримувані типи bulk jobs:
+Supported types of bulk jobs:
 
 - `cloudflare.setup`;
 - `cloudflare.remove`;
@@ -56,15 +56,15 @@ Domain Tool — це вебпанель для централізованого 
 - `namecheap.set_hosts`;
 - `domain.full_reset`.
 
-## Важливі обмеження
+## Important limitations
 
-- у `mock` mode усі provider mutations симулюються;
-- у `sandbox/live` реалізована лише перевірка credentials, але не реальні зміни доменів;
-- імпорт і синхронізація реальних доменів ще потребують реалізації;
-- login, RBAC, CSRF protection та production audit flow ще не готові;
-- `APP_MODE=live` не можна використовувати до завершення production checklist.
+- in `mock` mode all provider mutations are simulated;
+- in `sandbox/live`, only the verification of credentials is implemented, but not real domain changes;
+- import and synchronization of real domains still need implementation;
+- login, RBAC, CSRF protection and production audit flow are not yet ready;
+- `APP_MODE=live` cannot be used until the production checklist is completed.
 
-## Технології
+## Technologies
 
 - Frontend: React 19, Next.js 16, TypeScript, Tailwind CSS, vinext/Vite;
 - Backend: NestJS 11, TypeScript;
@@ -73,11 +73,11 @@ Domain Tool — це вебпанель для централізованого 
 - Security: AES-256-GCM, Helmet, DTO validation;
 - Local infrastructure: Docker Compose.
 
-## Структура репозиторію
+## Repository structure
 
 ```text
 domain-tool/
-├── app/                       # frontend та API client
+├── app/                       # frontend and API client
 ├── backend/                   # NestJS API
 │   ├── drizzle/               # SQL migrations
 │   ├── src/                   # backend modules
@@ -85,19 +85,19 @@ domain-tool/
 ├── docs/                      # production checklist
 ├── tests/                     # frontend/render tests
 ├── docker-compose.yml         # PostgreSQL + Redis
-├── .env.example               # безпечний frontend приклад
-└── PROJECT_STATUS.md          # технічний handoff і поточний стан
+├── .env.example               # safe frontend configuration example
+└── PROJECT_STATUS.md          # technical handoff and current status
 ```
 
-## Вимоги
+## Requirements
 
-- Node.js `22.13` або новіший;
+- Node.js `22.13` or newer;
 - npm;
-- Docker Desktop — лише для persistent PostgreSQL і Redis.
+- Docker Desktop — only for persistent PostgreSQL and Redis.
 
-## Швидкий локальний запуск
+## Quick start
 
-Відкрийте два термінали в корені проєкту.
+Open two terminals in the root of the project.
 
 API:
 
@@ -113,15 +113,15 @@ npm install
 npm run dev
 ```
 
-Відкрийте [http://localhost:3000](http://localhost:3000). Health endpoint API:
+Open [http://localhost:3000](http://localhost:3000). The API health endpoint is:
 [http://localhost:4000/api/health](http://localhost:4000/api/health).
 
-За замовчуванням база і Redis вимкнені. Дані зберігаються в пам'яті процесу та
-зникають після перезапуску API.
+By default, the database and Redis are disabled. Data is stored in process memory and
+disappears when the API restarts.
 
-## PostgreSQL і Redis
+## PostgreSQL and Redis
 
-Запустіть локальну інфраструктуру:
+Start the local infrastructure:
 
 ```bash
 docker compose up -d postgres redis
@@ -129,37 +129,37 @@ cp backend/.env.example backend/.env
 openssl rand -hex 32
 ```
 
-Запишіть згенерований ключ у `ENCRYPTION_KEY` файлу `backend/.env` і змініть:
+Set the generated value as `ENCRYPTION_KEY` in `backend/.env`, then enable persistence:
 
 ```dotenv
 DATABASE_ENABLED=true
 REDIS_ENABLED=true
 ```
 
-Застосуйте міграцію та запустіть API:
+Apply the migration and run the API:
 
 ```bash
 npm --prefix backend run db:migrate
 npm run dev:api
 ```
 
-Файл `backend/.env` не можна додавати в Git. У репозиторії має залишатися лише
-`backend/.env.example` без реальних ключів.
+Never commit `backend/.env`. Only `backend/.env.example`, without real keys, belongs
+in the repository.
 
-## Основні API endpoints
+## Basic API endpoints
 
-| Method | Path | Призначення |
+| Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/api/health` | Стан API, PostgreSQL і Redis |
-| `GET` | `/api/accounts` | Метадані акаунтів без секретів |
-| `POST` | `/api/accounts` | Додати зашифрований provider account |
-| `POST` | `/api/accounts/:id/test` | Перевірити credentials |
-| `DELETE` | `/api/accounts/:id` | Видалити provider account |
-| `GET` | `/api/jobs` | Останні масові операції |
-| `POST` | `/api/jobs` | Створити job максимум для 500 доменів |
-| `GET` | `/api/jobs/:id` | Статус job та per-domain результати |
+| `GET` | `/api/health` | API, PostgreSQL, and Redis status |
+| `GET` | `/api/accounts` | Metadata of accounts without secrets |
+| `POST` | `/api/accounts` | Add an encrypted provider account |
+| `POST` | `/api/accounts/:id/test` | Check credentials |
+| `DELETE` | `/api/accounts/:id` | Delete provider account |
+| `GET` | `/api/jobs` | Recent mass operations |
+| `POST` | `/api/jobs` | Create a job for a maximum of 500 domains |
+| `GET` | `/api/jobs/:id` | Job status and per-domain results |
 
-## Перевірка проєкту
+## Verification
 
 ```bash
 npm run lint
@@ -169,16 +169,16 @@ npm run test:api
 npm run build:api
 ```
 
-## Безпека
+## Security
 
-- не комітьте `.env`, API tokens, passwords або реальні домени/IP;
-- не використовуйте Cloudflare Global API Key — потрібен scoped API Token;
-- вводьте credentials тільки через локальний або production UI;
-- для демонстрацій використовуйте `.example` та документаційні IP-діапазони;
-- перед staging реалізуйте idempotency, rate limiting, authentication та audit log;
-- перед production перевірте backup/restore, HTTPS і least-privilege permissions.
+- do not commit `.env`, API tokens, passwords or real domains/IPs;
+- do not use Cloudflare Global API Key - scoped API Token is required;
+- enter credentials only through the local or production UI;
+- for demos use `.example` and documentation IP ranges;
+- before staging, implement idempotency, rate limiting, authentication and audit log;
+- before production, check backup/restore, HTTPS and least-privilege permissions.
 
-## Поточний статус
+## Current status
 
-Проєкт придатний для локальної розробки, UI-демонстрації та тестування API в
-`mock` mode. Він ще не готовий до керування реальними production-доменами.
+The project is suitable for local development, UI demonstration and API testing in
+`mock` mode. It is not yet ready to manage real production domains.
